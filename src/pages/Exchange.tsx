@@ -150,9 +150,52 @@ const Exchange = () => {
   };
 
   const handleSave = () => {
+    setShowReceipt(true);
+    // Generate image after dialog renders
+    setTimeout(async () => {
+      if (receiptRef.current) {
+        try {
+          const dataUrl = await toPng(receiptRef.current, { 
+            backgroundColor: '#0d1117',
+            pixelRatio: 2,
+          });
+          setReceiptImage(dataUrl);
+        } catch (err) {
+          console.error("Failed to generate receipt image", err);
+        }
+      }
+    }, 300);
+  };
+
+  const handleDownloadReceipt = () => {
+    if (!receiptImage) return;
+    const link = document.createElement("a");
+    link.download = `exchange-${buyCurrency}-${payCurrency}-${Date.now()}.png`;
+    link.href = receiptImage;
+    link.click();
+  };
+
+  const handleShareReceipt = async () => {
+    if (!receiptImage) return;
+    try {
+      const blob = await (await fetch(receiptImage)).blob();
+      const file = new File([blob], `exchange-receipt.png`, { type: "image/png" });
+      if (navigator.share) {
+        await navigator.share({ files: [file], title: "Exchange Receipt" });
+      } else {
+        handleDownloadReceipt();
+      }
+    } catch {
+      handleDownloadReceipt();
+    }
+  };
+
+  const handleConfirmAndClose = () => {
     toast.success("Exchange recorded successfully", {
-      description: `${amountNum.toLocaleString()} ${buyCurrency} → ${effectiveTotal.toFixed(2)} ${payCurrency}`,
+      description: `${amountNum.toLocaleString()} ${buyCurrency} → ${formatNum(effectiveTotal, 8)} ${payCurrency}`,
     });
+    setShowReceipt(false);
+    setReceiptImage(null);
     handleDiscard();
   };
 
