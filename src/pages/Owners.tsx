@@ -102,8 +102,9 @@ const emptyContribForm = {
   referenceNo: "", note: "",
 };
 
-type SortField = "name" | "createdAtUtc" | "balanceCount";
+type SortField = "name" | "createdAtUtc" | "balanceCount" | "contribCount";
 type BalanceFilter = "all" | "has-balance" | "no-balance";
+type ContribFilter = "all" | "has-contribs" | "no-contribs";
 
 const Owners = () => {
   const [owners, setOwners] = useState<Owner[]>(initialOwners);
@@ -112,6 +113,8 @@ const Owners = () => {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<SortField>("name");
   const [balanceFilter, setBalanceFilter] = useState<BalanceFilter>("all");
+  const [contribFilter, setContribFilter] = useState<ContribFilter>("all");
+  const [assetFilter, setAssetFilter] = useState<string>("all");
 
   // Owner modal
   const [ownerModalOpen, setOwnerModalOpen] = useState(false);
@@ -126,8 +129,15 @@ const Owners = () => {
   // Delete contribution
   const [deleteContribId, setDeleteContribId] = useState<number | null>(null);
 
-  const activeFilterCount = [balanceFilter !== "all"].filter(Boolean).length;
-  const clearFilters = () => { setSearch(""); setBalanceFilter("all"); setSortBy("name"); };
+  // Collect all unique assets across owners
+  const allAssets = useMemo(() => {
+    const set = new Set<string>();
+    owners.forEach((o) => o.balances.forEach((b) => set.add(b.asset)));
+    return Array.from(set).sort();
+  }, [owners]);
+
+  const activeFilterCount = [balanceFilter !== "all", contribFilter !== "all", assetFilter !== "all"].filter(Boolean).length;
+  const clearFilters = () => { setSearch(""); setBalanceFilter("all"); setContribFilter("all"); setAssetFilter("all"); setSortBy("name"); };
 
   const filtered = useMemo(() => {
     let result = owners.filter(
@@ -139,15 +149,25 @@ const Owners = () => {
     if (balanceFilter === "has-balance") result = result.filter((o) => o.balances.length > 0);
     else if (balanceFilter === "no-balance") result = result.filter((o) => o.balances.length === 0);
 
+    if (assetFilter !== "all") result = result.filter((o) => o.balances.some((b) => b.asset === assetFilter));
+
+    if (contribFilter === "has-contribs") result = result.filter((o) => contributions.some((c) => c.ownerId === o.id));
+    else if (contribFilter === "no-contribs") result = result.filter((o) => !contributions.some((c) => c.ownerId === o.id));
+
     result.sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
       if (sortBy === "createdAtUtc") return new Date(b.createdAtUtc).getTime() - new Date(a.createdAtUtc).getTime();
       if (sortBy === "balanceCount") return b.balances.length - a.balances.length;
+      if (sortBy === "contribCount") {
+        const ac = contributions.filter((c) => c.ownerId === a.id).length;
+        const bc = contributions.filter((c) => c.ownerId === b.id).length;
+        return bc - ac;
+      }
       return 0;
     });
 
     return result;
-  }, [owners, search, balanceFilter, sortBy]);
+  }, [owners, contributions, search, balanceFilter, contribFilter, assetFilter, sortBy]);
 
   const toggleExpand = (id: number) =>
     setExpanded((prev) => {
@@ -231,12 +251,34 @@ const Owners = () => {
             </SelectContent>
           </Select>
 
+          <Select value={contribFilter} onValueChange={(v) => setContribFilter(v as ContribFilter)}>
+            <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue placeholder="Contributions" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All contributions</SelectItem>
+              <SelectItem value="has-contribs">Has contributions</SelectItem>
+              <SelectItem value="no-contribs">No contributions</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {allAssets.length > 0 && (
+            <Select value={assetFilter} onValueChange={setAssetFilter}>
+              <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="Asset" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All assets</SelectItem>
+                {allAssets.map((a) => (
+                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortField)}>
-            <SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue placeholder="Sort by" /></SelectTrigger>
+            <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="Sort by" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="name">Name</SelectItem>
               <SelectItem value="createdAtUtc">Newest first</SelectItem>
               <SelectItem value="balanceCount">Most assets</SelectItem>
+              <SelectItem value="contribCount">Most contribs</SelectItem>
             </SelectContent>
           </Select>
 
