@@ -20,14 +20,14 @@ const Navbar = () => {
     <nav className="bg-nav text-nav-foreground border-b border-nav-foreground/10 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
-          <div className="flex items-center gap-2.5">
+          <Link to="/" className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-lg bg-nav-accent flex items-center justify-center glow-primary">
               <ArrowLeftRight className="h-4 w-4 text-nav-foreground" />
             </div>
             <span className="text-lg font-bold tracking-tight">
               Crypto<span className="text-nav-accent">X</span>change
             </span>
-          </div>
+          </Link>
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-1">
