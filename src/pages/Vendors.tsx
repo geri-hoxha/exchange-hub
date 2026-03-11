@@ -253,7 +253,7 @@ const Vendors = () => {
 
                   {expandedId === v.id && (
                     <TableRow key={`${v.id}-exp`}>
-                      <TableCell colSpan={7} className="bg-muted/30 px-6 py-4">
+                      <TableCell colSpan={8} className="bg-muted/30 px-6 py-4">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                           <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Created</p>
