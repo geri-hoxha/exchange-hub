@@ -319,6 +319,7 @@ const Customers = () => {
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>

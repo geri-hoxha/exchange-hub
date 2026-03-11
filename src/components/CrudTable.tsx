@@ -136,6 +136,7 @@ const CrudTable = ({ title, columns, initialData = [] }: CrudTableProps) => {
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
