@@ -214,6 +214,7 @@ const Vendors = () => {
                 <>
                   <TableRow key={v.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setExpandedId(expandedId === v.id ? null : v.id)}>
                     <TableCell className="font-semibold">{v.name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{v.note || "—"}</TableCell>
                     <TableCell className="text-center font-mono">{v.tradeCount}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatNum(v.totalVolumeLcy)}</TableCell>
                     <TableCell className="text-right">
