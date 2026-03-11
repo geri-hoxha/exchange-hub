@@ -131,6 +131,7 @@ const Customers = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Note</TableHead>
               <TableHead className="text-center">Trades</TableHead>
               <TableHead className="text-right">Received (LCY)</TableHead>
               <TableHead className="text-right">Paid (LCY)</TableHead>
@@ -144,7 +145,7 @@ const Customers = () => {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                   No customers found.
                 </TableCell>
               </TableRow>
@@ -157,10 +158,10 @@ const Customers = () => {
                     onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}
                   >
                     <TableCell>
-                      <div>
-                        <p className="font-semibold">{c.name}</p>
-                        {c.note && <p className="text-xs text-muted-foreground">{c.note}</p>}
-                      </div>
+                      <p className="font-semibold">{c.name}</p>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm text-muted-foreground">{c.note || "—"}</p>
                     </TableCell>
                     <TableCell className="text-center font-mono">{c.tradeCount}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatNum(c.totalReceivedLcy)}</TableCell>
@@ -199,7 +200,7 @@ const Customers = () => {
                   {/* Expanded details */}
                   {expandedId === c.id && (
                     <TableRow key={`${c.id}-expanded`}>
-                      <TableCell colSpan={9} className="bg-muted/30 px-6 py-4">
+                      <TableCell colSpan={10} className="bg-muted/30 px-6 py-4">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                           <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Created</p>
