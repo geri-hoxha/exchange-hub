@@ -258,11 +258,10 @@ const Exchange = () => {
           Rates updated: <span className="font-mono">{lastUpdated.toLocaleTimeString()}</span>
         </p>
         <Button
-          variant="ghost"
           size="sm"
           onClick={handleRefreshRates}
           disabled={refreshing}
-          className="text-xs gap-1.5 hover:bg-accent hover:text-accent-foreground"
+          className="text-xs gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
           Refresh Rates
