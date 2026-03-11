@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronUp, Filter } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -107,7 +107,6 @@ type SortField = "name" | "tradeCount" | "netFeeLcy" | "lastTradeAtUtc";
 const Customers = () => {
   const [data] = useState<Customer[]>(initialData);
   const [search, setSearch] = useState("");
-  const [expandedId, setExpandedId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [balanceFilter, setBalanceFilter] = useState<BalanceFilter>("all");
   const [tradeFilter, setTradeFilter] = useState<TradeFilter>("all");
@@ -243,78 +242,41 @@ const Customers = () => {
               </TableRow>
             ) : (
               filtered.map((c) => (
-                <>
-                  <TableRow
-                    key={c.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}
-                  >
-                    <TableCell>
-                      <p className="font-semibold">{c.name}</p>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm text-muted-foreground">{c.note || "—"}</p>
-                    </TableCell>
-                    <TableCell className="text-center font-mono">{c.tradeCount}</TableCell>
-                    <TableCell className="text-right font-mono text-sm">{formatNum(c.totalReceivedLcy)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm">{formatNum(c.totalPaidLcy)}</TableCell>
-                    <TableCell className="text-right">
-                      <span className="font-mono text-sm text-accent font-semibold">
-                        {formatNum(c.netFeeLcy)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <BalanceList items={c.theyOweUs} variant="owe" />
-                    </TableCell>
-                    <TableCell>
-                      <BalanceList items={c.weOweThem} variant="owed" />
-                    </TableCell>
-                    <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">
-                      {formatDate(c.lastTradeAtUtc)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); }}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteId(c.id); }}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                        {expandedId === c.id ? (
-                          <ChevronUp className="h-4 w-4 text-muted-foreground mt-2" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground mt-2" />
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-
-                  {/* Expanded details */}
-                  {expandedId === c.id && (
-                    <TableRow key={`${c.id}-expanded`}>
-                      <TableCell colSpan={10} className="bg-muted/30 px-6 py-4">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Created</p>
-                            <p className="font-mono">{formatDate(c.createdAtUtc)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Total Received</p>
-                            <p className="font-mono">{formatNum(c.totalReceivedLcy, 8)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Total Paid</p>
-                            <p className="font-mono">{formatNum(c.totalPaidLcy, 8)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Net Fee</p>
-                            <p className="font-mono text-accent font-semibold">{formatNum(c.netFeeLcy, 8)}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </>
+                <TableRow key={c.id}>
+                  <TableCell>
+                    <p className="font-semibold">{c.name}</p>
+                  </TableCell>
+                  <TableCell>
+                    <p className="text-sm text-muted-foreground">{c.note || "—"}</p>
+                  </TableCell>
+                  <TableCell className="text-center font-mono">{c.tradeCount}</TableCell>
+                  <TableCell className="text-right font-mono text-sm">{formatNum(c.totalReceivedLcy)}</TableCell>
+                  <TableCell className="text-right font-mono text-sm">{formatNum(c.totalPaidLcy)}</TableCell>
+                  <TableCell className="text-right">
+                    <span className="font-mono text-sm text-accent font-semibold">
+                      {formatNum(c.netFeeLcy)}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <BalanceList items={c.theyOweUs} variant="owe" />
+                  </TableCell>
+                  <TableCell>
+                    <BalanceList items={c.weOweThem} variant="owed" />
+                  </TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">
+                    {formatDate(c.lastTradeAtUtc)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteId(c.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))
             )}
           </TableBody>
