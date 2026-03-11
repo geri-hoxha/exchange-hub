@@ -400,7 +400,7 @@ const Exchange = () => {
               <div className="rounded-xl border border-border overflow-hidden mb-6">
                 {/* Row: Customer Wants To Buy */}
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
-                  <span className="text-sm text-muted-foreground">Customer Wants To Buy</span>
+                  <span className="text-sm text-muted-foreground">{mode === "wants" ? "Customer Wants To Buy" : "Customer Has"}</span>
                   <div className="flex items-center gap-2">
                     {buyCurrencyData && <CurrencyIcon icon={buyCurrencyData.icon} size="sm" />}
                     <span className="font-mono font-semibold text-sm">
