@@ -262,7 +262,7 @@ const Exchange = () => {
           size="sm"
           onClick={handleRefreshRates}
           disabled={refreshing}
-          className="text-xs gap-1.5"
+          className="text-xs gap-1.5 hover:bg-accent hover:text-accent-foreground"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
           Refresh Rates
