@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ArrowLeftRight, ArrowRight, Check, X, Pencil, Bitcoin, DollarSign, Euro, PoundSterling, JapaneseYen, Coins } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ArrowLeftRight, ArrowRight, Check, X, Pencil, Bitcoin, DollarSign, Euro, PoundSterling, Coins, Download, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,6 +10,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { toPng } from "html-to-image";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const currencies = [
   { code: "USDT-TRC20", name: "Tether TRC20", type: "crypto", symbol: "₮", icon: "usdt" },
@@ -93,6 +100,11 @@ const Exchange = () => {
   const [editingTotal, setEditingTotal] = useState(false);
   const [totalOverride, setTotalOverride] = useState<string>("");
 
+  // Receipt preview
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [receiptImage, setReceiptImage] = useState<string | null>(null);
+  const receiptRef = useRef<HTMLDivElement>(null);
+
   const buyCurrencyData = currencies.find((c) => c.code === buyCurrency);
   const payCurrencyData = currencies.find((c) => c.code === payCurrency);
   const isBuyingFiat = buyCurrencyData?.type === "fiat";
@@ -138,9 +150,52 @@ const Exchange = () => {
   };
 
   const handleSave = () => {
+    setShowReceipt(true);
+    // Generate image after dialog renders
+    setTimeout(async () => {
+      if (receiptRef.current) {
+        try {
+          const dataUrl = await toPng(receiptRef.current, { 
+            backgroundColor: '#0d1117',
+            pixelRatio: 2,
+          });
+          setReceiptImage(dataUrl);
+        } catch (err) {
+          console.error("Failed to generate receipt image", err);
+        }
+      }
+    }, 300);
+  };
+
+  const handleDownloadReceipt = () => {
+    if (!receiptImage) return;
+    const link = document.createElement("a");
+    link.download = `exchange-${buyCurrency}-${payCurrency}-${Date.now()}.png`;
+    link.href = receiptImage;
+    link.click();
+  };
+
+  const handleShareReceipt = async () => {
+    if (!receiptImage) return;
+    try {
+      const blob = await (await fetch(receiptImage)).blob();
+      const file = new File([blob], `exchange-receipt.png`, { type: "image/png" });
+      if (navigator.share) {
+        await navigator.share({ files: [file], title: "Exchange Receipt" });
+      } else {
+        handleDownloadReceipt();
+      }
+    } catch {
+      handleDownloadReceipt();
+    }
+  };
+
+  const handleConfirmAndClose = () => {
     toast.success("Exchange recorded successfully", {
-      description: `${amountNum.toLocaleString()} ${buyCurrency} → ${effectiveTotal.toFixed(2)} ${payCurrency}`,
+      description: `${amountNum.toLocaleString()} ${buyCurrency} → ${formatNum(effectiveTotal, 8)} ${payCurrency}`,
     });
+    setShowReceipt(false);
+    setReceiptImage(null);
     handleDiscard();
   };
 
@@ -377,35 +432,39 @@ const Exchange = () => {
               </div>
 
               {/* Total Customer Pays — prominent box, editable */}
-              <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-5 mb-6">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm">Total Customer<br />Pays</span>
-                  {editingTotal ? (
-                    <div className="flex items-center gap-1">
+              <div className="rounded-xl border-2 border-primary/30 bg-primary/5 px-5 py-6 mb-6">
+                {editingTotal ? (
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="font-bold text-base whitespace-nowrap">Total Customer Pays</span>
+                    <div className="flex items-center gap-2">
                       <Input
                         type="number"
                         value={totalOverride}
                         onChange={(e) => setTotalOverride(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleTotalConfirm()}
-                        className="w-48 h-10 text-right font-mono text-xl font-bold bg-background"
+                        className="w-52 h-11 text-right font-mono text-xl font-bold bg-background"
                         autoFocus
                       />
-                      <Button size="sm" variant="ghost" onClick={handleTotalConfirm} className="h-8 w-8 p-0">
+                      <span className="text-sm font-bold text-muted-foreground">{payCurrency}</span>
+                      <Button size="sm" variant="ghost" onClick={handleTotalConfirm} className="h-9 w-9 p-0">
                         <Check className="h-4 w-4" />
                       </Button>
                     </div>
-                  ) : (
-                    <button onClick={handleTotalEdit} className="flex flex-col items-end group cursor-pointer">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-2xl tracking-tight">
-                          {formatNum(effectiveTotal, 8)}
-                        </span>
-                        <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                      <span className="text-sm font-bold text-muted-foreground">{payCurrency}</span>
-                    </button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <button onClick={handleTotalEdit} className="w-full group cursor-pointer text-left">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-base">Total Customer Pays</span>
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                    <div className="text-center mt-2">
+                      <p className="font-mono font-bold text-3xl tracking-tight">
+                        {formatNum(effectiveTotal, 8)}
+                      </p>
+                      <p className="text-sm font-bold text-muted-foreground mt-1">{payCurrency}</p>
+                    </div>
+                  </button>
+                )}
               </div>
 
               {isBuyingFiat && gasFeeNum > 0 && (
@@ -439,6 +498,80 @@ const Exchange = () => {
           )}
         </div>
       </div>
+
+      {/* Receipt Preview Dialog */}
+      <Dialog open={showReceipt} onOpenChange={(open) => { if (!open) { setShowReceipt(false); setReceiptImage(null); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Exchange Receipt</DialogTitle>
+          </DialogHeader>
+
+          {/* Hidden receipt for screenshot */}
+          <div ref={receiptRef} className="bg-[#0d1117] text-white p-6 rounded-xl" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+            <div className="text-center mb-5">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <ArrowLeftRight className="h-5 w-5 text-[#3b82f6]" />
+                <span className="text-lg font-bold">CryptoXchange</span>
+              </div>
+              <p className="text-xs text-gray-400">Exchange Receipt</p>
+              <p className="text-xs text-gray-500 mt-1">{new Date().toLocaleString()}</p>
+            </div>
+
+            <div className="border border-gray-700 rounded-lg overflow-hidden mb-4">
+              <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
+                <span className="text-xs text-gray-400">Customer Buys</span>
+                <span className="text-sm font-mono font-semibold">{formatNum(amountNum, 2)} {buyCurrency}</span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
+                <span className="text-xs text-gray-400">Exchange Rate</span>
+                <span className="text-sm font-mono font-semibold">{((buyRateUsd) / (payRateUsd)).toFixed(8)}</span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
+                <span className="text-xs text-gray-400">Subtotal</span>
+                <span className="text-sm font-mono font-semibold">{formatNum(baseCost, 8)} {payCurrency}</span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
+                <span className="text-xs text-gray-400">Fee ({feePercent}%)</span>
+                <span className="text-sm font-mono font-semibold">{formatNum(feeAmount, 8)} {payCurrency}</span>
+              </div>
+              {hasAdjustment && (
+                <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
+                  <span className="text-xs text-gray-400">Adjustment</span>
+                  <span className="text-sm font-mono font-semibold">{adjustment > 0 ? "+" : ""}{formatNum(adjustment, 8)} {payCurrency}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-[#161b22] border border-[#3b82f6]/30 rounded-lg p-4 text-center">
+              <p className="text-xs text-gray-400 mb-1">Total Customer Pays</p>
+              <p className="text-2xl font-mono font-bold">{formatNum(effectiveTotal, 8)}</p>
+              <p className="text-sm font-bold text-gray-400">{payCurrency}</p>
+            </div>
+          </div>
+
+          {/* Preview image once generated */}
+          {receiptImage && (
+            <div className="mt-2 rounded-lg overflow-hidden border border-border">
+              <img src={receiptImage} alt="Receipt preview" className="w-full" />
+            </div>
+          )}
+
+          <div className="flex gap-3 mt-4">
+            <Button variant="outline" onClick={handleDownloadReceipt} disabled={!receiptImage} className="flex-1">
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+            <Button variant="outline" onClick={handleShareReceipt} disabled={!receiptImage} className="flex-1">
+              <Share2 className="h-4 w-4 mr-2" />
+              Share
+            </Button>
+            <Button onClick={handleConfirmAndClose} className="flex-1">
+              <Check className="h-4 w-4 mr-2" />
+              Confirm
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
