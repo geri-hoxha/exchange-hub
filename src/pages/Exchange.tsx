@@ -85,6 +85,7 @@ const CurrencyIcon = ({ icon, size = "md" }: { icon: string; size?: "sm" | "md" 
 
 const Exchange = () => {
   // Step 1
+  const [mode, setMode] = useState<"wants" | "has">("wants");
   const [amount, setAmount] = useState("");
   const [buyCurrency, setBuyCurrency] = useState("");
   const [payCurrency, setPayCurrency] = useState("");
