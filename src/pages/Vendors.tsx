@@ -280,7 +280,7 @@ const Vendors = () => {
         </div>
 
         <div className="overflow-x-auto">
-        <Table className="min-w-[1000px]">
+        <Table className="min-w-[1200px]">
           <TableHeader>
             <TableRow>
               <TableHead className="w-[40px]" />
