@@ -41,6 +41,7 @@ interface VolumeEntry { asset: string; quantity: number; }
 interface Vendor {
   id: number;
   name: string;
+  note: string;
   createdAtUtc: string;
   tradeCount: number;
   totalVolumeLcy: number;
@@ -51,7 +52,7 @@ interface Vendor {
 
 const initialData: Vendor[] = [
   {
-    id: 1, name: "Jax",
+    id: 1, name: "Jax", note: "",
     createdAtUtc: "2026-03-06T03:20:09.1658196+00:00",
     tradeCount: 1, totalVolumeLcy: 1000, netFeeLcy: -49.52,
     lastTradeAtUtc: "2026-03-06T14:49:00+00:00",
@@ -69,7 +70,7 @@ type SortField = "name" | "tradeCount" | "totalVolumeLcy" | "netFeeLcy" | "lastT
 type TradeFilter = "all" | "1+" | "5+" | "10+";
 type FeeFilter = "all" | "positive" | "negative";
 
-const emptyForm = { name: "" };
+const emptyForm = { name: "", note: "" };
 
 const Vendors = () => {
   const [data, setData] = useState<Vendor[]>(initialData);
@@ -111,14 +112,14 @@ const Vendors = () => {
   }, [data, search, tradeFilter, feeFilter, sortBy]);
 
   const openAdd = () => { setEditingVendor(null); setForm(emptyForm); setModalOpen(true); };
-  const openEdit = (v: Vendor) => { setEditingVendor(v); setForm({ name: v.name }); setModalOpen(true); };
+  const openEdit = (v: Vendor) => { setEditingVendor(v); setForm({ name: v.name, note: v.note }); setModalOpen(true); };
   const handleSave = () => {
     if (!form.name.trim()) return;
     if (editingVendor) {
-      setData((prev) => prev.map((v) => v.id === editingVendor.id ? { ...v, name: form.name } : v));
+      setData((prev) => prev.map((v) => v.id === editingVendor.id ? { ...v, name: form.name, note: form.note } : v));
     } else {
       setData((prev) => [...prev, {
-        id: Date.now(), name: form.name, createdAtUtc: new Date().toISOString(),
+        id: Date.now(), name: form.name, note: form.note, createdAtUtc: new Date().toISOString(),
         tradeCount: 0, totalVolumeLcy: 0, netFeeLcy: 0, lastTradeAtUtc: "", volumes: [],
       }]);
     }
@@ -194,6 +195,7 @@ const Vendors = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Note</TableHead>
               <TableHead className="text-center">Trades</TableHead>
               <TableHead className="text-right">Volume (LCY)</TableHead>
               <TableHead className="text-right">Net Fee (LCY)</TableHead>
@@ -205,13 +207,14 @@ const Vendors = () => {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">No vendors found.</TableCell>
+                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">No vendors found.</TableCell>
               </TableRow>
             ) : (
               filtered.map((v) => (
                 <>
                   <TableRow key={v.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setExpandedId(expandedId === v.id ? null : v.id)}>
                     <TableCell className="font-semibold">{v.name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{v.note || "—"}</TableCell>
                     <TableCell className="text-center font-mono">{v.tradeCount}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatNum(v.totalVolumeLcy)}</TableCell>
                     <TableCell className="text-right">
@@ -250,7 +253,7 @@ const Vendors = () => {
 
                   {expandedId === v.id && (
                     <TableRow key={`${v.id}-exp`}>
-                      <TableCell colSpan={7} className="bg-muted/30 px-6 py-4">
+                      <TableCell colSpan={8} className="bg-muted/30 px-6 py-4">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                           <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Created</p>
@@ -288,7 +291,11 @@ const Vendors = () => {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="vendor-name">Name</Label>
-              <Input id="vendor-name" placeholder="Vendor name" value={form.name} onChange={(e) => setForm({ name: e.target.value })} />
+              <Input id="vendor-name" placeholder="Vendor name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vendor-note">Note</Label>
+              <Input id="vendor-note" placeholder="Optional note" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>
