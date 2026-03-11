@@ -52,7 +52,7 @@ interface Vendor {
 
 const initialData: Vendor[] = [
   {
-    id: 1, name: "Jax",
+    id: 1, name: "Jax", note: "",
     createdAtUtc: "2026-03-06T03:20:09.1658196+00:00",
     tradeCount: 1, totalVolumeLcy: 1000, netFeeLcy: -49.52,
     lastTradeAtUtc: "2026-03-06T14:49:00+00:00",
