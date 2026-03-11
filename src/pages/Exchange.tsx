@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeftRight, ArrowRight, Check, X, Pencil, Bitcoin, DollarSign, Euro, PoundSterling, Coins, Download, Share2 } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, Check, X, Pencil, Bitcoin, DollarSign, Euro, PoundSterling, Coins, Download, Share2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -104,6 +104,21 @@ const Exchange = () => {
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
+
+  // Rates refresh
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefreshRates = () => {
+    setRefreshing(true);
+    // Simulate rate refresh — replace with real API call later
+    setTimeout(() => {
+      setLastUpdated(new Date());
+      setRefreshing(false);
+      setTotalOverride("");
+      toast.success("Rates refreshed");
+    }, 600);
+  };
 
   const buyCurrencyData = currencies.find((c) => c.code === buyCurrency);
   const payCurrencyData = currencies.find((c) => c.code === payCurrency);
@@ -235,6 +250,23 @@ const Exchange = () => {
           <h1 className="text-3xl font-bold mb-2 tracking-tight">Exchange Recorder</h1>
           <p className="text-muted-foreground dark:text-nav-foreground/50 text-sm">Record customer currency exchanges</p>
         </div>
+      </div>
+
+      {/* Refresh bar */}
+      <div className="max-w-2xl mx-auto flex items-center justify-between mb-4">
+        <p className="text-xs text-muted-foreground">
+          Rates updated: <span className="font-mono">{lastUpdated.toLocaleTimeString()}</span>
+        </p>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleRefreshRates}
+          disabled={refreshing}
+          className="text-xs gap-1.5"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          Refresh Rates
+        </Button>
       </div>
 
       {/* Card */}
