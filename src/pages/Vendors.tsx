@@ -116,10 +116,10 @@ const Vendors = () => {
   const handleSave = () => {
     if (!form.name.trim()) return;
     if (editingVendor) {
-      setData((prev) => prev.map((v) => v.id === editingVendor.id ? { ...v, name: form.name } : v));
+      setData((prev) => prev.map((v) => v.id === editingVendor.id ? { ...v, name: form.name, note: form.note } : v));
     } else {
       setData((prev) => [...prev, {
-        id: Date.now(), name: form.name, createdAtUtc: new Date().toISOString(),
+        id: Date.now(), name: form.name, note: form.note, createdAtUtc: new Date().toISOString(),
         tradeCount: 0, totalVolumeLcy: 0, netFeeLcy: 0, lastTradeAtUtc: "", volumes: [],
       }]);
     }
