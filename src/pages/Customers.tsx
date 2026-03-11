@@ -1,8 +1,15 @@
-import { useState } from "react";
-import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -89,15 +96,51 @@ const BalanceList = ({ items, variant }: { items: BalanceEntry[]; variant: "owe"
   );
 };
 
+type BalanceFilter = "all" | "they-owe" | "we-owe" | "settled";
+type TradeFilter = "all" | "1+" | "5+" | "10+";
+type SortField = "name" | "tradeCount" | "netFeeLcy" | "lastTradeAtUtc";
+
 const Customers = () => {
   const [data] = useState<Customer[]>(initialData);
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [balanceFilter, setBalanceFilter] = useState<BalanceFilter>("all");
+  const [tradeFilter, setTradeFilter] = useState<TradeFilter>("all");
+  const [sortBy, setSortBy] = useState<SortField>("name");
 
-  const filtered = data.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.note.toLowerCase().includes(search.toLowerCase())
-  );
+  const activeFilterCount = [balanceFilter !== "all", tradeFilter !== "all"].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearch("");
+    setBalanceFilter("all");
+    setTradeFilter("all");
+    setSortBy("name");
+  };
+
+  const filtered = useMemo(() => {
+    let result = data.filter((c) =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.note.toLowerCase().includes(search.toLowerCase())
+    );
+
+    if (balanceFilter === "they-owe") result = result.filter((c) => c.theyOweUs.length > 0);
+    else if (balanceFilter === "we-owe") result = result.filter((c) => c.weOweThem.length > 0);
+    else if (balanceFilter === "settled") result = result.filter((c) => c.theyOweUs.length === 0 && c.weOweThem.length === 0);
+
+    if (tradeFilter === "1+") result = result.filter((c) => c.tradeCount >= 1);
+    else if (tradeFilter === "5+") result = result.filter((c) => c.tradeCount >= 5);
+    else if (tradeFilter === "10+") result = result.filter((c) => c.tradeCount >= 10);
+
+    result.sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "tradeCount") return b.tradeCount - a.tradeCount;
+      if (sortBy === "netFeeLcy") return b.netFeeLcy - a.netFeeLcy;
+      if (sortBy === "lastTradeAtUtc") return new Date(b.lastTradeAtUtc).getTime() - new Date(a.lastTradeAtUtc).getTime();
+      return 0;
+    });
+
+    return result;
+  }, [data, search, balanceFilter, tradeFilter, sortBy]);
 
   return (
     <div>
