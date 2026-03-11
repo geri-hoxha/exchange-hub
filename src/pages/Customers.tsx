@@ -108,6 +108,7 @@ const Customers = () => {
   const [data] = useState<Customer[]>(initialData);
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
   const [balanceFilter, setBalanceFilter] = useState<BalanceFilter>("all");
   const [tradeFilter, setTradeFilter] = useState<TradeFilter>("all");
   const [sortBy, setSortBy] = useState<SortField>("name");
