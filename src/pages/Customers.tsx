@@ -157,9 +157,9 @@ const Customers = () => {
         </Button>
       </div>
 
-      <div className="bg-card rounded-xl border border-border shadow-sm">
+      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="p-3 border-b border-border flex flex-wrap items-center gap-2">
-          <div className="relative w-48">
+          <div className="relative w-full sm:w-48">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               placeholder="Search..."
