@@ -402,7 +402,6 @@ const Owners = () => {
             )}
           </TableBody>
         </Table>
-        </div>
       </div>
 
       {/* Owner Modal */}
