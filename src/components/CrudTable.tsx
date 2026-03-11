@@ -98,7 +98,8 @@ const CrudTable = ({ title, columns, initialData = [] }: CrudTableProps) => {
           </div>
         </div>
 
-        <Table>
+        <div className="overflow-x-auto">
+        <Table className="min-w-[600px]">
           <TableHeader>
             <TableRow>
               {columns.map((col) => (
