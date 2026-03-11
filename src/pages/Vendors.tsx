@@ -417,6 +417,7 @@ const Vendors = () => {
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       {/* Vendor Add/Edit Modal */}
