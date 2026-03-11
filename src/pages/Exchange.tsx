@@ -184,7 +184,7 @@ const Exchange = () => {
 
       {/* Card */}
       <div className="max-w-2xl mx-auto">
-        <div className="bg-card rounded-2xl shadow-xl border border-border p-6 sm:p-8">
+        <div className="dark:bg-card dark:border-border dark:shadow-xl bg-transparent border-transparent shadow-none rounded-2xl border p-6 sm:p-8">
           {/* Steps indicator */}
           <div className="flex items-center gap-3 mb-6">
             <div className={`flex items-center gap-2 text-sm font-semibold ${step >= 1 ? "text-primary" : "text-muted-foreground"}`}>
