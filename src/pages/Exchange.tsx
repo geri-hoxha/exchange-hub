@@ -115,7 +115,7 @@ const Exchange = () => {
     setTimeout(() => {
       setLastUpdated(new Date());
       setRefreshing(false);
-      setResult(null);
+      setTotalOverride("");
       toast.success("Rates refreshed");
     }, 600);
   };
