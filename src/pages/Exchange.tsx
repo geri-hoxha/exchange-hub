@@ -172,13 +172,13 @@ const Exchange = () => {
   return (
     <div>
       {/* Hero */}
-      <div className="bg-nav text-nav-foreground -mx-4 sm:-mx-6 lg:-mx-8 -mt-8 px-4 sm:px-6 lg:px-8 pt-12 pb-36 mb-[-7rem]">
+      <div className="dark:bg-nav dark:text-nav-foreground bg-transparent text-foreground -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-6 pb-8 mb-2 dark:-mt-8 dark:pt-12 dark:pb-36 dark:mb-[-7rem]">
         <div className="max-w-2xl mx-auto text-center">
           <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-primary/20 mb-4">
             <ArrowLeftRight className="h-6 w-6 text-primary" />
           </div>
           <h1 className="text-3xl font-bold mb-2 tracking-tight">Exchange Recorder</h1>
-          <p className="text-nav-foreground/50 text-sm">Record customer currency exchanges</p>
+          <p className="text-muted-foreground dark:text-nav-foreground/50 text-sm">Record customer currency exchanges</p>
         </div>
       </div>
 
