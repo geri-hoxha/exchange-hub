@@ -113,6 +113,8 @@ const Owners = () => {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<SortField>("name");
   const [balanceFilter, setBalanceFilter] = useState<BalanceFilter>("all");
+  const [contribFilter, setContribFilter] = useState<ContribFilter>("all");
+  const [assetFilter, setAssetFilter] = useState<string>("all");
 
   // Owner modal
   const [ownerModalOpen, setOwnerModalOpen] = useState(false);
