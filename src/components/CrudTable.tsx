@@ -3,20 +3,15 @@ import { Plus, Pencil, Trash2, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 
 export interface Column {
@@ -37,6 +32,7 @@ const CrudTable = ({ title, columns, initialData = [] }: CrudTableProps) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
 
   const filtered = data.filter((row) =>
     columns.some((col) =>
@@ -66,9 +62,12 @@ const CrudTable = ({ title, columns, initialData = [] }: CrudTableProps) => {
     setDialogOpen(false);
   };
 
-  const handleDelete = (index: number) => {
-    const realIndex = data.indexOf(filtered[index]);
-    setData((d) => d.filter((_, i) => i !== realIndex));
+  const confirmDelete = () => {
+    if (deleteIndex !== null) {
+      const realIndex = data.indexOf(filtered[deleteIndex]);
+      setData((d) => d.filter((_, i) => i !== realIndex));
+      setDeleteIndex(null);
+    }
   };
 
   return (
@@ -126,7 +125,7 @@ const CrudTable = ({ title, columns, initialData = [] }: CrudTableProps) => {
                       <Button variant="ghost" size="icon" onClick={() => openEdit(i)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(i)} className="text-destructive hover:text-destructive">
+                      <Button variant="ghost" size="icon" onClick={() => setDeleteIndex(i)} className="text-destructive hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -141,9 +140,7 @@ const CrudTable = ({ title, columns, initialData = [] }: CrudTableProps) => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editIndex !== null ? "Edit" : "Add"} {title.slice(0, -1)}
-            </DialogTitle>
+            <DialogTitle>{editIndex !== null ? "Edit" : "Add"} {title.slice(0, -1)}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             {columns.map((col) => (
@@ -164,6 +161,19 @@ const CrudTable = ({ title, columns, initialData = [] }: CrudTableProps) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteIndex !== null} onOpenChange={(open) => !open && setDeleteIndex(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {title.slice(0, -1)}</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone. Are you sure?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
