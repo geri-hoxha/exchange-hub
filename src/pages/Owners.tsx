@@ -129,8 +129,15 @@ const Owners = () => {
   // Delete contribution
   const [deleteContribId, setDeleteContribId] = useState<number | null>(null);
 
-  const activeFilterCount = [balanceFilter !== "all"].filter(Boolean).length;
-  const clearFilters = () => { setSearch(""); setBalanceFilter("all"); setSortBy("name"); };
+  // Collect all unique assets across owners
+  const allAssets = useMemo(() => {
+    const set = new Set<string>();
+    owners.forEach((o) => o.balances.forEach((b) => set.add(b.asset)));
+    return Array.from(set).sort();
+  }, [owners]);
+
+  const activeFilterCount = [balanceFilter !== "all", contribFilter !== "all", assetFilter !== "all"].filter(Boolean).length;
+  const clearFilters = () => { setSearch(""); setBalanceFilter("all"); setContribFilter("all"); setAssetFilter("all"); setSortBy("name"); };
 
   const filtered = useMemo(() => {
     let result = owners.filter(
