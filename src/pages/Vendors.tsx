@@ -41,6 +41,7 @@ interface VolumeEntry { asset: string; quantity: number; }
 interface Vendor {
   id: number;
   name: string;
+  note: string;
   createdAtUtc: string;
   tradeCount: number;
   totalVolumeLcy: number;
