@@ -218,7 +218,8 @@ const Customers = () => {
           )}
         </div>
 
-        <Table>
+        <div className="overflow-x-auto">
+        <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
