@@ -102,8 +102,9 @@ const emptyContribForm = {
   referenceNo: "", note: "",
 };
 
-type SortField = "name" | "createdAtUtc" | "balanceCount";
+type SortField = "name" | "createdAtUtc" | "balanceCount" | "contribCount";
 type BalanceFilter = "all" | "has-balance" | "no-balance";
+type ContribFilter = "all" | "has-contribs" | "no-contribs";
 
 const Owners = () => {
   const [owners, setOwners] = useState<Owner[]>(initialOwners);
