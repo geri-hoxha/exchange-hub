@@ -195,7 +195,7 @@ const Owners = () => {
       </div>
 
       <div className="bg-card rounded-xl border border-border shadow-sm">
-        <div className="p-3 border-b border-border">
+        <div className="p-3 border-b border-border flex flex-wrap items-center gap-2">
           <div className="relative w-48">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" />
@@ -205,6 +205,30 @@ const Owners = () => {
               </button>
             )}
           </div>
+
+          <Select value={balanceFilter} onValueChange={(v) => setBalanceFilter(v as BalanceFilter)}>
+            <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="Balances" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All balances</SelectItem>
+              <SelectItem value="has-balance">Has balance</SelectItem>
+              <SelectItem value="no-balance">No balance</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortField)}>
+            <SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue placeholder="Sort by" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name</SelectItem>
+              <SelectItem value="createdAtUtc">Newest first</SelectItem>
+              <SelectItem value="balanceCount">Most assets</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {activeFilterCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs gap-1 text-muted-foreground">
+              <X className="h-3 w-3" /> Clear ({activeFilterCount})
+            </Button>
+          )}
         </div>
 
         <Table>
