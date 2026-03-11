@@ -252,6 +252,23 @@ const Exchange = () => {
         </div>
       </div>
 
+      {/* Refresh bar */}
+      <div className="max-w-2xl mx-auto flex items-center justify-between mb-4">
+        <p className="text-xs text-muted-foreground">
+          Rates updated: <span className="font-mono">{lastUpdated.toLocaleTimeString()}</span>
+        </p>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleRefreshRates}
+          disabled={refreshing}
+          className="text-xs gap-1.5"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          Refresh Rates
+        </Button>
+      </div>
+
       {/* Card */}
       <div className="max-w-2xl mx-auto">
         <div className="bg-card rounded-2xl shadow-xl border border-border p-6 sm:p-8">
