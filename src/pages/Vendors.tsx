@@ -70,7 +70,7 @@ type SortField = "name" | "tradeCount" | "totalVolumeLcy" | "netFeeLcy" | "lastT
 type TradeFilter = "all" | "1+" | "5+" | "10+";
 type FeeFilter = "all" | "positive" | "negative";
 
-const emptyForm = { name: "" };
+const emptyForm = { name: "", note: "" };
 
 const Vendors = () => {
   const [data, setData] = useState<Vendor[]>(initialData);
