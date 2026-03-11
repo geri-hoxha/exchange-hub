@@ -124,9 +124,9 @@ const Owners = () => {
                     ) : (
                       <div className="flex flex-wrap gap-2">
                         {o.balances.map((b, i) => (
-                          <span key={i} className="font-mono text-sm text-foreground">
-                            {formatNum(b.amount)} <span className="text-muted-foreground">{b.asset}</span>
-                          </span>
+                          <Badge key={i} variant="outline" className={`font-mono text-sm font-medium ${getAssetColor(b.asset)}`}>
+                            {formatNum(b.amount)} {b.asset}
+                          </Badge>
                         ))}
                       </div>
                     )}
