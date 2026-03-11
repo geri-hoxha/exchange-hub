@@ -112,7 +112,7 @@ const Vendors = () => {
   }, [data, search, tradeFilter, feeFilter, sortBy]);
 
   const openAdd = () => { setEditingVendor(null); setForm(emptyForm); setModalOpen(true); };
-  const openEdit = (v: Vendor) => { setEditingVendor(v); setForm({ name: v.name }); setModalOpen(true); };
+  const openEdit = (v: Vendor) => { setEditingVendor(v); setForm({ name: v.name, note: v.note }); setModalOpen(true); };
   const handleSave = () => {
     if (!form.name.trim()) return;
     if (editingVendor) {
