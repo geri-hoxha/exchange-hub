@@ -149,15 +149,25 @@ const Owners = () => {
     if (balanceFilter === "has-balance") result = result.filter((o) => o.balances.length > 0);
     else if (balanceFilter === "no-balance") result = result.filter((o) => o.balances.length === 0);
 
+    if (assetFilter !== "all") result = result.filter((o) => o.balances.some((b) => b.asset === assetFilter));
+
+    if (contribFilter === "has-contribs") result = result.filter((o) => contributions.some((c) => c.ownerId === o.id));
+    else if (contribFilter === "no-contribs") result = result.filter((o) => !contributions.some((c) => c.ownerId === o.id));
+
     result.sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
       if (sortBy === "createdAtUtc") return new Date(b.createdAtUtc).getTime() - new Date(a.createdAtUtc).getTime();
       if (sortBy === "balanceCount") return b.balances.length - a.balances.length;
+      if (sortBy === "contribCount") {
+        const ac = contributions.filter((c) => c.ownerId === a.id).length;
+        const bc = contributions.filter((c) => c.ownerId === b.id).length;
+        return bc - ac;
+      }
       return 0;
     });
 
     return result;
-  }, [owners, search, balanceFilter, sortBy]);
+  }, [owners, contributions, search, balanceFilter, contribFilter, assetFilter, sortBy]);
 
   const toggleExpand = (id: number) =>
     setExpanded((prev) => {
