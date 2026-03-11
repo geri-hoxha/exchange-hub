@@ -113,6 +113,19 @@ const Owners = () => {
   const [sortBy, setSortBy] = useState<SortField>("name");
   const [balanceFilter, setBalanceFilter] = useState<BalanceFilter>("all");
 
+  // Owner modal
+  const [ownerModalOpen, setOwnerModalOpen] = useState(false);
+  const [editingOwner, setEditingOwner] = useState<Owner | null>(null);
+  const [ownerForm, setOwnerForm] = useState(emptyOwnerForm);
+
+  // Contribution modal
+  const [contribModalOpen, setContribModalOpen] = useState(false);
+  const [contribOwnerId, setContribOwnerId] = useState<number | null>(null);
+  const [contribForm, setContribForm] = useState(emptyContribForm);
+
+  // Delete contribution
+  const [deleteContribId, setDeleteContribId] = useState<number | null>(null);
+
   const activeFilterCount = [balanceFilter !== "all"].filter(Boolean).length;
   const clearFilters = () => { setSearch(""); setBalanceFilter("all"); setSortBy("name"); };
 
