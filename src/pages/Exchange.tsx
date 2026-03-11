@@ -506,8 +506,8 @@ const Exchange = () => {
             <DialogTitle>Exchange Receipt</DialogTitle>
           </DialogHeader>
 
-          {/* Hidden receipt for screenshot */}
-          <div ref={receiptRef} className="bg-[#0d1117] text-white p-6 rounded-xl" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+          {/* Source for screenshot — hidden once image is generated */}
+          <div ref={receiptRef} className={`bg-[#0d1117] text-white p-6 rounded-xl ${receiptImage ? "hidden" : ""}`} style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
             <div className="text-center mb-5">
               <div className="flex items-center justify-center gap-2 mb-2">
                 <ArrowLeftRight className="h-5 w-5 text-[#3b82f6]" />
@@ -549,9 +549,9 @@ const Exchange = () => {
             </div>
           </div>
 
-          {/* Preview image once generated */}
+          {/* Generated image preview */}
           {receiptImage && (
-            <div className="mt-2 rounded-lg overflow-hidden border border-border">
+            <div className="rounded-lg overflow-hidden border border-border">
               <img src={receiptImage} alt="Receipt preview" className="w-full" />
             </div>
           )}
