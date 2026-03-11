@@ -355,7 +355,7 @@ const Owners = () => {
                             {ownerContribs.length === 0 ? (
                               <p className="text-sm text-muted-foreground py-4 text-center">No contributions yet.</p>
                             ) : (
-                              <div className="rounded-lg border border-border overflow-x-auto">
+                              <div className="rounded-lg border border-border overflow-hidden overflow-x-auto">
                                 <Table>
                                   <TableHeader>
                                     <TableRow className="bg-muted/50">
