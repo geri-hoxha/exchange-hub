@@ -1,8 +1,15 @@
-import { useState } from "react";
-import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -89,15 +96,51 @@ const BalanceList = ({ items, variant }: { items: BalanceEntry[]; variant: "owe"
   );
 };
 
+type BalanceFilter = "all" | "they-owe" | "we-owe" | "settled";
+type TradeFilter = "all" | "1+" | "5+" | "10+";
+type SortField = "name" | "tradeCount" | "netFeeLcy" | "lastTradeAtUtc";
+
 const Customers = () => {
   const [data] = useState<Customer[]>(initialData);
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [balanceFilter, setBalanceFilter] = useState<BalanceFilter>("all");
+  const [tradeFilter, setTradeFilter] = useState<TradeFilter>("all");
+  const [sortBy, setSortBy] = useState<SortField>("name");
 
-  const filtered = data.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.note.toLowerCase().includes(search.toLowerCase())
-  );
+  const activeFilterCount = [balanceFilter !== "all", tradeFilter !== "all"].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearch("");
+    setBalanceFilter("all");
+    setTradeFilter("all");
+    setSortBy("name");
+  };
+
+  const filtered = useMemo(() => {
+    let result = data.filter((c) =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.note.toLowerCase().includes(search.toLowerCase())
+    );
+
+    if (balanceFilter === "they-owe") result = result.filter((c) => c.theyOweUs.length > 0);
+    else if (balanceFilter === "we-owe") result = result.filter((c) => c.weOweThem.length > 0);
+    else if (balanceFilter === "settled") result = result.filter((c) => c.theyOweUs.length === 0 && c.weOweThem.length === 0);
+
+    if (tradeFilter === "1+") result = result.filter((c) => c.tradeCount >= 1);
+    else if (tradeFilter === "5+") result = result.filter((c) => c.tradeCount >= 5);
+    else if (tradeFilter === "10+") result = result.filter((c) => c.tradeCount >= 10);
+
+    result.sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "tradeCount") return b.tradeCount - a.tradeCount;
+      if (sortBy === "netFeeLcy") return b.netFeeLcy - a.netFeeLcy;
+      if (sortBy === "lastTradeAtUtc") return new Date(b.lastTradeAtUtc).getTime() - new Date(a.lastTradeAtUtc).getTime();
+      return 0;
+    });
+
+    return result;
+  }, [data, search, balanceFilter, tradeFilter, sortBy]);
 
   return (
     <div>
@@ -110,21 +153,64 @@ const Customers = () => {
       </div>
 
       <div className="bg-card rounded-xl border border-border shadow-sm">
-        <div className="p-4 border-b border-border">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="p-3 border-b border-border flex flex-wrap items-center gap-2">
+          <div className="relative w-48">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search customers..."
+              placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
+              className="pl-8 h-8 text-sm"
             />
             {search && (
-              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2">
-                <X className="h-4 w-4 text-muted-foreground" />
+              <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2">
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
             )}
           </div>
+
+          <Select value={balanceFilter} onValueChange={(v) => setBalanceFilter(v as BalanceFilter)}>
+            <SelectTrigger className="h-8 w-[130px] text-xs">
+              <SelectValue placeholder="Balance" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All balances</SelectItem>
+              <SelectItem value="they-owe">They owe us</SelectItem>
+              <SelectItem value="we-owe">We owe them</SelectItem>
+              <SelectItem value="settled">Settled</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={tradeFilter} onValueChange={(v) => setTradeFilter(v as TradeFilter)}>
+            <SelectTrigger className="h-8 w-[110px] text-xs">
+              <SelectValue placeholder="Trades" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All trades</SelectItem>
+              <SelectItem value="1+">1+ trades</SelectItem>
+              <SelectItem value="5+">5+ trades</SelectItem>
+              <SelectItem value="10+">10+ trades</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortField)}>
+            <SelectTrigger className="h-8 w-[120px] text-xs">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name</SelectItem>
+              <SelectItem value="tradeCount">Trade count</SelectItem>
+              <SelectItem value="netFeeLcy">Net fee</SelectItem>
+              <SelectItem value="lastTradeAtUtc">Last trade</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {activeFilterCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs gap-1 text-muted-foreground">
+              <X className="h-3 w-3" />
+              Clear ({activeFilterCount})
+            </Button>
+          )}
         </div>
 
         <Table>
