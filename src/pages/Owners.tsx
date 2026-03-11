@@ -103,11 +103,11 @@ const Owners = () => {
                     {o.balances.length === 0 ? (
                       <span className="text-muted-foreground text-xs">—</span>
                     ) : (
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-2">
                         {o.balances.map((b, i) => (
-                          <Badge key={i} variant="outline" className="font-mono text-xs">
-                            {formatNum(b.amount)} {b.asset}
-                          </Badge>
+                          <span key={i} className="font-mono text-xs text-foreground">
+                            {formatNum(b.amount)} <span className="text-muted-foreground">{b.asset}</span>
+                          </span>
                         ))}
                       </div>
                     )}
