@@ -207,7 +207,7 @@ const Vendors = () => {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">No vendors found.</TableCell>
+                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">No vendors found.</TableCell>
               </TableRow>
             ) : (
               filtered.map((v) => (
