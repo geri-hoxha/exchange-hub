@@ -251,12 +251,34 @@ const Owners = () => {
             </SelectContent>
           </Select>
 
+          <Select value={contribFilter} onValueChange={(v) => setContribFilter(v as ContribFilter)}>
+            <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue placeholder="Contributions" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All contributions</SelectItem>
+              <SelectItem value="has-contribs">Has contributions</SelectItem>
+              <SelectItem value="no-contribs">No contributions</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {allAssets.length > 0 && (
+            <Select value={assetFilter} onValueChange={setAssetFilter}>
+              <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="Asset" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All assets</SelectItem>
+                {allAssets.map((a) => (
+                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortField)}>
-            <SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue placeholder="Sort by" /></SelectTrigger>
+            <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="Sort by" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="name">Name</SelectItem>
               <SelectItem value="createdAtUtc">Newest first</SelectItem>
               <SelectItem value="balanceCount">Most assets</SelectItem>
+              <SelectItem value="contribCount">Most contribs</SelectItem>
             </SelectContent>
           </Select>
 
