@@ -279,89 +279,80 @@ const Exchange = () => {
 
           {step === 2 && (
             <>
-              {/* Recap with icons */}
-              <div className="p-4 bg-muted rounded-xl border border-border mb-6">
-                <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold mb-3">Customer wants to buy</p>
-                <div className="flex items-center gap-3">
-                  {buyCurrencyData && <CurrencyIcon icon={buyCurrencyData.icon} />}
-                  <div>
-                    <p className="text-xl font-bold font-mono">
-                      {buyCurrencyData?.symbol}{formatNum(amountNum)}
-                      <span className="text-sm text-muted-foreground font-sans ml-2">{buyCurrency}</span>
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
-                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Paying with</span>
-                  {payCurrencyData && <CurrencyIcon icon={payCurrencyData.icon} size="sm" />}
-                  <span className="font-semibold text-sm">{payCurrency}</span>
-                </div>
+              {/* Header */}
+              <div className="flex items-center gap-2 mb-6">
+                <Check className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-bold">Review Exchange</h2>
               </div>
 
-              {/* Fee selector — presets + editable */}
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                Platform fee
-              </label>
-              <div className="flex flex-wrap items-center gap-2 mt-2 mb-4">
-                {FEE_OPTIONS.map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => { setFeePercent(f); setEditingFee(false); setFeeInput(String(f)); }}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                      !editingFee && feePercent === f
-                        ? "bg-primary text-primary-foreground shadow-md"
-                        : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
-                    }`}
-                  >
-                    {f}%
-                  </button>
-                ))}
-                {/* Custom fee */}
-                {editingFee ? (
-                  <div className="flex items-center gap-1">
-                    <Input
-                      type="number"
-                      value={feeInput}
-                      onChange={(e) => setFeeInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleFeeConfirm()}
-                      className="w-20 h-9 text-sm font-mono text-center bg-background"
-                      autoFocus
-                    />
-                    <span className="text-sm text-muted-foreground">%</span>
-                    <Button size="sm" variant="ghost" onClick={handleFeeConfirm} className="h-8 w-8 p-0">
-                      <Check className="h-3.5 w-3.5" />
-                    </Button>
+              {/* Breakdown table */}
+              <div className="rounded-xl border border-border overflow-hidden mb-6">
+                {/* Row: Customer Wants To Buy */}
+                <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
+                  <span className="text-sm text-muted-foreground">Customer Wants To Buy</span>
+                  <div className="flex items-center gap-2">
+                    {buyCurrencyData && <CurrencyIcon icon={buyCurrencyData.icon} size="sm" />}
+                    <span className="font-mono font-semibold text-sm">
+                      {formatNum(amountNum, 2)} {buyCurrency}
+                    </span>
                   </div>
-                ) : (
-                  <button
-                    onClick={handleFeeEdit}
-                    className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${
-                      !FEE_OPTIONS.includes(feePercent)
-                        ? "bg-primary text-primary-foreground shadow-md"
-                        : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
-                    }`}
-                  >
-                    <Pencil className="h-3 w-3" />
-                    {!FEE_OPTIONS.includes(feePercent) ? `${feePercent}%` : "Custom"}
-                  </button>
-                )}
-              </div>
-
-              {/* Breakdown */}
-              <div className="space-y-3 py-4 border-t border-border">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Base cost</span>
-                  <span className="font-mono font-semibold">{payCurrencyData?.symbol}{formatNum(baseCost)} {payCurrency}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Platform fee ({feePercent}%)</span>
-                  <span className="font-mono font-semibold">{payCurrencyData?.symbol}{formatNum(feeAmount)} {payCurrency}</span>
                 </div>
 
+                {/* Row: Exchange Rate */}
+                <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
+                  <span className="text-sm text-muted-foreground">Exchange Rate</span>
+                  <span className="font-mono font-semibold text-sm">
+                    {((buyRateUsd) / (payRateUsd)).toFixed(16).replace(/0+$/, '').replace(/\.$/, '')}
+                  </span>
+                </div>
+
+                {/* Row: Subtotal */}
+                <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
+                  <span className="text-sm text-muted-foreground">Subtotal</span>
+                  <div className="flex items-center gap-2">
+                    {payCurrencyData && <CurrencyIcon icon={payCurrencyData.icon} size="sm" />}
+                    <span className="font-mono font-semibold text-sm">
+                      {formatNum(baseCost, 8)} {payCurrency}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Row: Platform Fee — clickable to edit */}
+                <div className="flex items-center justify-between px-4 py-3.5 border-b border-border last:border-b-0">
+                  <span className="text-sm text-muted-foreground">Platform Fee</span>
+                  <div className="flex items-center gap-2">
+                    {editingFee ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          value={feeInput}
+                          onChange={(e) => setFeeInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleFeeConfirm()}
+                          className="w-16 h-7 text-sm font-mono text-center bg-background"
+                          autoFocus
+                        />
+                        <span className="text-xs text-muted-foreground">%</span>
+                        <Button size="sm" variant="ghost" onClick={handleFeeConfirm} className="h-7 w-7 p-0">
+                          <Check className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <button onClick={handleFeeEdit} className="flex items-center gap-1.5 group cursor-pointer">
+                        <span className="text-primary font-semibold text-sm">{feePercent}%</span>
+                        <span className="text-muted-foreground">→</span>
+                        <span className="font-mono font-semibold text-sm">
+                          {formatNum(feeAmount, 8)} {payCurrency}
+                        </span>
+                        <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Row: Gas Fee (only when buying fiat) */}
                 {isBuyingFiat && (
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Gas fee (absorbed)</span>
+                  <div className="flex items-center justify-between px-4 py-3.5 border-b border-border last:border-b-0">
+                    <span className="text-sm text-muted-foreground">Gas Fee (absorbed)</span>
                     <Input
                       type="number"
                       value={gasFee}
@@ -372,59 +363,60 @@ const Exchange = () => {
                   </div>
                 )}
 
+                {/* Row: Adjustment (only if total overridden) */}
                 {hasAdjustment && (
-                  <div className="flex justify-between text-sm">
-                    <span className={adjustment > 0 ? "text-accent" : "text-destructive"}>
+                  <div className="flex items-center justify-between px-4 py-3.5">
+                    <span className={`text-sm font-medium ${adjustment > 0 ? "text-accent" : "text-destructive"}`}>
                       Adjustment
                     </span>
-                    <span className={`font-mono font-semibold ${adjustment > 0 ? "text-accent" : "text-destructive"}`}>
-                      {adjustment > 0 ? "+" : ""}{payCurrencyData?.symbol}{formatNum(adjustment)} {payCurrency}
+                    <span className={`font-mono font-semibold text-sm ${adjustment > 0 ? "text-accent" : "text-destructive"}`}>
+                      {adjustment > 0 ? "+" : ""}{formatNum(adjustment, 8)} {payCurrency}
                     </span>
                   </div>
                 )}
+              </div>
 
-                {/* Total — editable on click */}
-                <div className="flex justify-between items-center text-base pt-3 border-t border-border">
-                  <span className="font-semibold">Total customer pays</span>
+              {/* Total Customer Pays — prominent box, editable */}
+              <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-5 mb-6">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-sm">Total Customer<br />Pays</span>
                   {editingTotal ? (
                     <div className="flex items-center gap-1">
-                      <span className="text-primary font-mono font-bold">{payCurrencyData?.symbol}</span>
                       <Input
                         type="number"
                         value={totalOverride}
                         onChange={(e) => setTotalOverride(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleTotalConfirm()}
-                        className="w-36 h-9 text-right font-mono text-base font-bold bg-background"
+                        className="w-48 h-10 text-right font-mono text-xl font-bold bg-background"
                         autoFocus
                       />
-                      <span className="text-sm text-muted-foreground ml-1">{payCurrency}</span>
                       <Button size="sm" variant="ghost" onClick={handleTotalConfirm} className="h-8 w-8 p-0">
-                        <Check className="h-3.5 w-3.5" />
+                        <Check className="h-4 w-4" />
                       </Button>
                     </div>
                   ) : (
-                    <button
-                      onClick={handleTotalEdit}
-                      className="flex items-center gap-2 group cursor-pointer"
-                    >
-                      <span className="font-mono font-bold text-primary text-lg">
-                        {payCurrencyData?.symbol}{formatNum(effectiveTotal)} {payCurrency}
-                      </span>
-                      <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <button onClick={handleTotalEdit} className="flex flex-col items-end group cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-2xl tracking-tight">
+                          {formatNum(effectiveTotal, 8)}
+                        </span>
+                        <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <span className="text-sm font-bold text-muted-foreground">{payCurrency}</span>
                     </button>
                   )}
                 </div>
-
-                {isBuyingFiat && gasFeeNum > 0 && (
-                  <div className="flex justify-between text-xs text-destructive">
-                    <span>Gas fee loss (our cost)</span>
-                    <span className="font-mono font-semibold">{payCurrencyData?.symbol}{formatNum(gasFeeNum)} {payCurrency}</span>
-                  </div>
-                )}
               </div>
 
+              {isBuyingFiat && gasFeeNum > 0 && (
+                <div className="flex justify-between text-xs text-destructive mb-4 px-1">
+                  <span>Gas fee loss (our cost)</span>
+                  <span className="font-mono font-semibold">{formatNum(gasFeeNum)} {payCurrency}</span>
+                </div>
+              )}
+
               {/* Actions */}
-              <div className="flex gap-3 mt-6">
+              <div className="flex gap-3">
                 <Button
                   variant="outline"
                   onClick={handleDiscard}
@@ -440,7 +432,7 @@ const Exchange = () => {
                   className="flex-1 h-12 text-base font-bold"
                 >
                   <Check className="h-4 w-4 mr-2" />
-                  Save
+                  Save Exchange
                 </Button>
               </div>
             </>
