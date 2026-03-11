@@ -153,21 +153,64 @@ const Customers = () => {
       </div>
 
       <div className="bg-card rounded-xl border border-border shadow-sm">
-        <div className="p-4 border-b border-border">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="p-3 border-b border-border flex flex-wrap items-center gap-2">
+          <div className="relative w-48">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search customers..."
+              placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
+              className="pl-8 h-8 text-sm"
             />
             {search && (
-              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2">
-                <X className="h-4 w-4 text-muted-foreground" />
+              <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2">
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
             )}
           </div>
+
+          <Select value={balanceFilter} onValueChange={(v) => setBalanceFilter(v as BalanceFilter)}>
+            <SelectTrigger className="h-8 w-[130px] text-xs">
+              <SelectValue placeholder="Balance" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All balances</SelectItem>
+              <SelectItem value="they-owe">They owe us</SelectItem>
+              <SelectItem value="we-owe">We owe them</SelectItem>
+              <SelectItem value="settled">Settled</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={tradeFilter} onValueChange={(v) => setTradeFilter(v as TradeFilter)}>
+            <SelectTrigger className="h-8 w-[110px] text-xs">
+              <SelectValue placeholder="Trades" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All trades</SelectItem>
+              <SelectItem value="1+">1+ trades</SelectItem>
+              <SelectItem value="5+">5+ trades</SelectItem>
+              <SelectItem value="10+">10+ trades</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortField)}>
+            <SelectTrigger className="h-8 w-[120px] text-xs">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name</SelectItem>
+              <SelectItem value="tradeCount">Trade count</SelectItem>
+              <SelectItem value="netFeeLcy">Net fee</SelectItem>
+              <SelectItem value="lastTradeAtUtc">Last trade</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {activeFilterCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs gap-1 text-muted-foreground">
+              <X className="h-3 w-3" />
+              Clear ({activeFilterCount})
+            </Button>
+          )}
         </div>
 
         <Table>
