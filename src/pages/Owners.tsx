@@ -289,7 +289,8 @@ const Owners = () => {
           )}
         </div>
 
-        <Table>
+        <div className="overflow-x-auto">
+        <Table className="min-w-[700px]">
           <TableHeader>
             <TableRow>
               <TableHead className="w-[40px]" />
@@ -402,6 +403,7 @@ const Owners = () => {
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       {/* Owner Modal */}

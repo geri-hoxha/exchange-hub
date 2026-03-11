@@ -218,7 +218,8 @@ const Customers = () => {
           )}
         </div>
 
-        <Table>
+        <div className="overflow-x-auto">
+        <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
@@ -318,6 +319,7 @@ const Customers = () => {
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
