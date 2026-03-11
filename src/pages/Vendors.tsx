@@ -195,6 +195,7 @@ const Vendors = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Note</TableHead>
               <TableHead className="text-center">Trades</TableHead>
               <TableHead className="text-right">Volume (LCY)</TableHead>
               <TableHead className="text-right">Net Fee (LCY)</TableHead>
