@@ -3,6 +3,13 @@ import { Plus, Pencil, Trash2, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 
 const assetColors: Record<string, string> = {
   EUR: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
@@ -22,9 +29,6 @@ const fallbackColors = [
 
 const getAssetColor = (asset: string) =>
   assetColors[asset] || fallbackColors[Math.abs([...asset].reduce((a, c) => a + c.charCodeAt(0), 0)) % fallbackColors.length];
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
 
 interface BalanceEntry {
   asset: string;
@@ -58,9 +62,14 @@ const formatDate = (iso: string) =>
 const formatNum = (n: number) =>
   n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const emptyForm = { name: "", note: "" };
+
 const Owners = () => {
-  const [data] = useState<Owner[]>(initialData);
+  const [data, setData] = useState<Owner[]>(initialData);
   const [search, setSearch] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingOwner, setEditingOwner] = useState<Owner | null>(null);
+  const [form, setForm] = useState(emptyForm);
 
   const filtered = data.filter(
     (o) =>
@@ -68,11 +77,42 @@ const Owners = () => {
       o.note.toLowerCase().includes(search.toLowerCase())
   );
 
+  const openAdd = () => {
+    setEditingOwner(null);
+    setForm(emptyForm);
+    setModalOpen(true);
+  };
+
+  const openEdit = (owner: Owner) => {
+    setEditingOwner(owner);
+    setForm({ name: owner.name, note: owner.note });
+    setModalOpen(true);
+  };
+
+  const handleSave = () => {
+    if (!form.name.trim()) return;
+    if (editingOwner) {
+      setData((prev) =>
+        prev.map((o) => (o.id === editingOwner.id ? { ...o, name: form.name, note: form.note } : o))
+      );
+    } else {
+      const newOwner: Owner = {
+        id: Date.now(),
+        name: form.name,
+        note: form.note,
+        createdAtUtc: new Date().toISOString(),
+        balances: [],
+      };
+      setData((prev) => [...prev, newOwner]);
+    }
+    setModalOpen(false);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Owners</h1>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={openAdd}>
           <Plus className="h-4 w-4" />
           Add Owner
         </Button>
@@ -136,7 +176,7 @@ const Owners = () => {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(o)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
@@ -150,6 +190,40 @@ const Owners = () => {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingOwner ? "Edit Owner" : "Add Owner"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="owner-name">Name</Label>
+              <Input
+                id="owner-name"
+                placeholder="Owner name"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="owner-note">Note</Label>
+              <Input
+                id="owner-note"
+                placeholder="Optional note"
+                value={form.note}
+                onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={!form.name.trim()}>
+              {editingOwner ? "Save Changes" : "Add Owner"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
