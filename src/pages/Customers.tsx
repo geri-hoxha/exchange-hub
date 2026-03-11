@@ -158,10 +158,10 @@ const Customers = () => {
                     onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}
                   >
                     <TableCell>
-                      <div>
-                        <p className="font-semibold">{c.name}</p>
-                        {c.note && <p className="text-xs text-muted-foreground">{c.note}</p>}
-                      </div>
+                      <p className="font-semibold">{c.name}</p>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm text-muted-foreground">{c.note || "—"}</p>
                     </TableCell>
                     <TableCell className="text-center font-mono">{c.tradeCount}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{formatNum(c.totalReceivedLcy)}</TableCell>
