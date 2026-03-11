@@ -131,6 +131,7 @@ const Customers = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Note</TableHead>
               <TableHead className="text-center">Trades</TableHead>
               <TableHead className="text-right">Received (LCY)</TableHead>
               <TableHead className="text-right">Paid (LCY)</TableHead>
