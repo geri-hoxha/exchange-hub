@@ -100,6 +100,11 @@ const Exchange = () => {
   const [editingTotal, setEditingTotal] = useState(false);
   const [totalOverride, setTotalOverride] = useState<string>("");
 
+  // Receipt preview
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [receiptImage, setReceiptImage] = useState<string | null>(null);
+  const receiptRef = useRef<HTMLDivElement>(null);
+
   const buyCurrencyData = currencies.find((c) => c.code === buyCurrency);
   const payCurrencyData = currencies.find((c) => c.code === payCurrency);
   const isBuyingFiat = buyCurrencyData?.type === "fiat";
