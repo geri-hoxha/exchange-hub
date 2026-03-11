@@ -289,7 +289,11 @@ const Vendors = () => {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="vendor-name">Name</Label>
-              <Input id="vendor-name" placeholder="Vendor name" value={form.name} onChange={(e) => setForm({ name: e.target.value })} />
+              <Input id="vendor-name" placeholder="Vendor name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vendor-note">Note</Label>
+              <Input id="vendor-note" placeholder="Optional note" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>
