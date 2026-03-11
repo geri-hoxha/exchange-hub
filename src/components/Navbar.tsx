@@ -28,7 +28,6 @@ const Navbar = () => {
               Crypto<span className="text-nav-accent">X</span>change
             </span>
           </Link>
-          </div>
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-1">
