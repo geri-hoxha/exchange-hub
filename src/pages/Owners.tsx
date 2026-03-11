@@ -99,30 +99,39 @@ const emptyContribForm = {
   referenceNo: "", note: "",
 };
 
+type SortField = "name" | "createdAtUtc" | "balanceCount";
+type BalanceFilter = "all" | "has-balance" | "no-balance";
+
 const Owners = () => {
   const [owners, setOwners] = useState<Owner[]>(initialOwners);
   const [contributions, setContributions] = useState<Contribution[]>(initialContributions);
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [sortBy, setSortBy] = useState<SortField>("name");
+  const [balanceFilter, setBalanceFilter] = useState<BalanceFilter>("all");
 
-  // Owner modal
-  const [ownerModalOpen, setOwnerModalOpen] = useState(false);
-  const [editingOwner, setEditingOwner] = useState<Owner | null>(null);
-  const [ownerForm, setOwnerForm] = useState(emptyOwnerForm);
+  const activeFilterCount = [balanceFilter !== "all"].filter(Boolean).length;
+  const clearFilters = () => { setSearch(""); setBalanceFilter("all"); setSortBy("name"); };
 
-  // Contribution modal
-  const [contribModalOpen, setContribModalOpen] = useState(false);
-  const [contribOwnerId, setContribOwnerId] = useState<number | null>(null);
-  const [contribForm, setContribForm] = useState(emptyContribForm);
+  const filtered = useMemo(() => {
+    let result = owners.filter(
+      (o) =>
+        o.name.toLowerCase().includes(search.toLowerCase()) ||
+        o.note.toLowerCase().includes(search.toLowerCase())
+    );
 
-  // Delete contribution
-  const [deleteContribId, setDeleteContribId] = useState<number | null>(null);
+    if (balanceFilter === "has-balance") result = result.filter((o) => o.balances.length > 0);
+    else if (balanceFilter === "no-balance") result = result.filter((o) => o.balances.length === 0);
 
-  const filtered = owners.filter(
-    (o) =>
-      o.name.toLowerCase().includes(search.toLowerCase()) ||
-      o.note.toLowerCase().includes(search.toLowerCase())
-  );
+    result.sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "createdAtUtc") return new Date(b.createdAtUtc).getTime() - new Date(a.createdAtUtc).getTime();
+      if (sortBy === "balanceCount") return b.balances.length - a.balances.length;
+      return 0;
+    });
+
+    return result;
+  }, [owners, search, balanceFilter, sortBy]);
 
   const toggleExpand = (id: number) =>
     setExpanded((prev) => {
