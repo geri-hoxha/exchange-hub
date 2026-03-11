@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +36,23 @@ const fallbackColors = [
 const getAssetColor = (asset: string) =>
   assetColors[asset] || fallbackColors[Math.abs([...asset].reduce((a, c) => a + c.charCodeAt(0), 0)) % fallbackColors.length];
 
+// --- Types ---
 interface VolumeEntry { asset: string; quantity: number; }
+
+interface VendorPurchase {
+  id: number;
+  vendorId: number;
+  occurredAtUtc: string;
+  asset: string;
+  quantity: number;
+  paidWithAsset: string;
+  paidWithQuantity: number;
+  boughtAssetCostLcy: number;
+  paidWithAssetCostLcy: number;
+  unitCostLcy: number;
+  vendorFeeLcy: number;
+  createdAtUtc: string;
+}
 
 interface Vendor {
   id: number;
@@ -50,7 +66,8 @@ interface Vendor {
   volumes: VolumeEntry[];
 }
 
-const initialData: Vendor[] = [
+// --- Initial data ---
+const initialVendors: Vendor[] = [
   {
     id: 1, name: "Jax", note: "",
     createdAtUtc: "2026-03-06T03:20:09.1658196+00:00",
@@ -60,6 +77,16 @@ const initialData: Vendor[] = [
   },
 ];
 
+const initialPurchases: VendorPurchase[] = [
+  {
+    id: 10003, vendorId: 1, occurredAtUtc: "2026-03-06T14:49:00+00:00",
+    asset: "EUR", quantity: 1000, paidWithAsset: "USDT-TRC20", paidWithQuantity: 1100,
+    boughtAssetCostLcy: 1000, paidWithAssetCostLcy: 950.48, unitCostLcy: 0.95048,
+    vendorFeeLcy: -49.52, createdAtUtc: "2026-03-06T15:49:43.0878695+00:00",
+  },
+];
+
+// --- Helpers ---
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
@@ -70,28 +97,55 @@ type SortField = "name" | "tradeCount" | "totalVolumeLcy" | "netFeeLcy" | "lastT
 type TradeFilter = "all" | "1+" | "5+" | "10+";
 type FeeFilter = "all" | "positive" | "negative";
 
-const emptyForm = { name: "", note: "" };
+const emptyVendorForm = { name: "", note: "" };
+
+const emptyPurchaseForm = {
+  asset: "", quantity: "", paidWithAsset: "", paidWithQuantity: "",
+  actualTotalCostLcy: "",
+  occurredAtUtc: new Date().toISOString().slice(0, 16),
+  referenceNo: "", note: "",
+};
+
+const COL_COUNT = 9;
 
 const Vendors = () => {
-  const [data, setData] = useState<Vendor[]>(initialData);
+  const [vendors, setVendors] = useState<Vendor[]>(initialVendors);
+  const [purchases, setPurchases] = useState<VendorPurchase[]>(initialPurchases);
   const [search, setSearch] = useState("");
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<SortField>("name");
   const [tradeFilter, setTradeFilter] = useState<TradeFilter>("all");
   const [feeFilter, setFeeFilter] = useState<FeeFilter>("all");
 
-  // Modals
-  const [modalOpen, setModalOpen] = useState(false);
+  // Vendor modal
+  const [vendorModalOpen, setVendorModalOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [vendorForm, setVendorForm] = useState(emptyVendorForm);
+
+  // Purchase modal
+  const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
+  const [purchaseVendorId, setPurchaseVendorId] = useState<number | null>(null);
+  const [purchaseForm, setPurchaseForm] = useState(emptyPurchaseForm);
+
+  // Delete
+  const [deleteVendorId, setDeleteVendorId] = useState<number | null>(null);
+  const [deletePurchaseId, setDeletePurchaseId] = useState<number | null>(null);
 
   const activeFilterCount = [tradeFilter !== "all", feeFilter !== "all"].filter(Boolean).length;
-
   const clearFilters = () => { setSearch(""); setTradeFilter("all"); setFeeFilter("all"); setSortBy("name"); };
 
+  const toggleExpand = (id: number) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
   const filtered = useMemo(() => {
-    let result = data.filter((v) => v.name.toLowerCase().includes(search.toLowerCase()));
+    let result = vendors.filter((v) =>
+      v.name.toLowerCase().includes(search.toLowerCase()) ||
+      v.note.toLowerCase().includes(search.toLowerCase())
+    );
 
     if (tradeFilter === "1+") result = result.filter((v) => v.tradeCount >= 1);
     else if (tradeFilter === "5+") result = result.filter((v) => v.tradeCount >= 5);
@@ -109,26 +163,60 @@ const Vendors = () => {
       return 0;
     });
     return result;
-  }, [data, search, tradeFilter, feeFilter, sortBy]);
+  }, [vendors, search, tradeFilter, feeFilter, sortBy]);
 
-  const openAdd = () => { setEditingVendor(null); setForm(emptyForm); setModalOpen(true); };
-  const openEdit = (v: Vendor) => { setEditingVendor(v); setForm({ name: v.name, note: v.note }); setModalOpen(true); };
-  const handleSave = () => {
-    if (!form.name.trim()) return;
+  // Vendor CRUD
+  const openAddVendor = () => { setEditingVendor(null); setVendorForm(emptyVendorForm); setVendorModalOpen(true); };
+  const openEditVendor = (v: Vendor) => { setEditingVendor(v); setVendorForm({ name: v.name, note: v.note }); setVendorModalOpen(true); };
+  const saveVendor = () => {
+    if (!vendorForm.name.trim()) return;
     if (editingVendor) {
-      setData((prev) => prev.map((v) => v.id === editingVendor.id ? { ...v, name: form.name, note: form.note } : v));
+      setVendors((prev) => prev.map((v) => v.id === editingVendor.id ? { ...v, name: vendorForm.name, note: vendorForm.note } : v));
     } else {
-      setData((prev) => [...prev, {
-        id: Date.now(), name: form.name, note: form.note, createdAtUtc: new Date().toISOString(),
+      setVendors((prev) => [...prev, {
+        id: Date.now(), name: vendorForm.name, note: vendorForm.note, createdAtUtc: new Date().toISOString(),
         tradeCount: 0, totalVolumeLcy: 0, netFeeLcy: 0, lastTradeAtUtc: "", volumes: [],
       }]);
     }
-    setModalOpen(false);
+    setVendorModalOpen(false);
   };
-  const confirmDelete = () => {
-    if (deleteId !== null) {
-      setData((prev) => prev.filter((v) => v.id !== deleteId));
-      setDeleteId(null);
+  const confirmDeleteVendor = () => {
+    if (deleteVendorId !== null) {
+      setVendors((prev) => prev.filter((v) => v.id !== deleteVendorId));
+      setPurchases((prev) => prev.filter((p) => p.vendorId !== deleteVendorId));
+      setDeleteVendorId(null);
+    }
+  };
+
+  // Purchase CRUD
+  const openAddPurchase = (vendorId: number) => {
+    setPurchaseVendorId(vendorId);
+    setPurchaseForm(emptyPurchaseForm);
+    setPurchaseModalOpen(true);
+  };
+  const savePurchase = () => {
+    if (!purchaseForm.asset.trim() || !purchaseVendorId) return;
+    const newPurchase: VendorPurchase = {
+      id: Date.now(),
+      vendorId: purchaseVendorId,
+      asset: purchaseForm.asset,
+      quantity: parseFloat(purchaseForm.quantity) || 0,
+      paidWithAsset: purchaseForm.paidWithAsset,
+      paidWithQuantity: parseFloat(purchaseForm.paidWithQuantity) || 0,
+      boughtAssetCostLcy: parseFloat(purchaseForm.actualTotalCostLcy) || 0,
+      paidWithAssetCostLcy: 0,
+      unitCostLcy: 0,
+      vendorFeeLcy: 0,
+      occurredAtUtc: new Date(purchaseForm.occurredAtUtc).toISOString(),
+      createdAtUtc: new Date().toISOString(),
+    };
+    setPurchases((prev) => [...prev, newPurchase]);
+    setPurchaseModalOpen(false);
+  };
+  const confirmDeletePurchase = () => {
+    if (deletePurchaseId !== null) {
+      setPurchases((prev) => prev.filter((p) => p.id !== deletePurchaseId));
+      setDeletePurchaseId(null);
     }
   };
 
@@ -136,7 +224,7 @@ const Vendors = () => {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Vendors</h1>
-        <Button className="gap-2" onClick={openAdd}>
+        <Button className="gap-2" onClick={openAddVendor}>
           <Plus className="h-4 w-4" /> Add Vendor
         </Button>
       </div>
@@ -194,6 +282,7 @@ const Vendors = () => {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[40px]" />
               <TableHead>Name</TableHead>
               <TableHead>Note</TableHead>
               <TableHead className="text-center">Trades</TableHead>
@@ -207,83 +296,130 @@ const Vendors = () => {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">No vendors found.</TableCell>
+                <TableCell colSpan={COL_COUNT} className="text-center py-12 text-muted-foreground">No vendors found.</TableCell>
               </TableRow>
             ) : (
-              filtered.map((v) => (
-                <>
-                  <TableRow key={v.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setExpandedId(expandedId === v.id ? null : v.id)}>
-                    <TableCell className="font-semibold">{v.name}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{v.note || "—"}</TableCell>
-                    <TableCell className="text-center font-mono">{v.tradeCount}</TableCell>
-                    <TableCell className="text-right font-mono text-sm">{formatNum(v.totalVolumeLcy)}</TableCell>
-                    <TableCell className="text-right">
-                      <span className={`font-mono text-sm font-semibold ${v.netFeeLcy >= 0 ? "text-accent" : "text-destructive"}`}>
-                        {formatNum(v.netFeeLcy)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {v.volumes.length === 0 ? (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {v.volumes.map((vol, i) => (
-                            <Badge key={i} variant="outline" className={`font-mono text-sm font-medium ${getAssetColor(vol.asset)}`}>
-                              {formatNum(vol.quantity)} {vol.asset}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">
-                      {v.lastTradeAtUtc ? formatDate(v.lastTradeAtUtc) : "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEdit(v); }}>
-                          <Pencil className="h-3.5 w-3.5" />
+              filtered.map((v) => {
+                const isExpanded = expanded.has(v.id);
+                const vendorPurchases = purchases.filter((p) => p.vendorId === v.id);
+                return (
+                  <>
+                    <TableRow key={v.id}>
+                      <TableCell className="pr-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleExpand(v.id)}>
+                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteId(v.id); }}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                        {expandedId === v.id ? <ChevronUp className="h-4 w-4 text-muted-foreground mt-2" /> : <ChevronDown className="h-4 w-4 text-muted-foreground mt-2" />}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-
-                  {expandedId === v.id && (
-                    <TableRow key={`${v.id}-exp`}>
-                      <TableCell colSpan={8} className="bg-muted/30 px-6 py-4">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Created</p>
-                            <p className="font-mono">{formatDate(v.createdAtUtc)}</p>
+                      </TableCell>
+                      <TableCell className="font-semibold">{v.name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{v.note || "—"}</TableCell>
+                      <TableCell className="text-center font-mono">{v.tradeCount}</TableCell>
+                      <TableCell className="text-right font-mono text-sm">{formatNum(v.totalVolumeLcy)}</TableCell>
+                      <TableCell className="text-right">
+                        <span className={`font-mono text-sm font-semibold ${v.netFeeLcy >= 0 ? "text-accent" : "text-destructive"}`}>
+                          {formatNum(v.netFeeLcy)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {v.volumes.length === 0 ? (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {v.volumes.map((vol, i) => (
+                              <Badge key={i} variant="outline" className={`font-mono text-sm font-medium ${getAssetColor(vol.asset)}`}>
+                                {formatNum(vol.quantity)} {vol.asset}
+                              </Badge>
+                            ))}
                           </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Total Volume</p>
-                            <p className="font-mono">{formatNum(v.totalVolumeLcy)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Net Fee</p>
-                            <p className={`font-mono font-semibold ${v.netFeeLcy >= 0 ? "text-accent" : "text-destructive"}`}>{formatNum(v.netFeeLcy)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Trade Count</p>
-                            <p className="font-mono">{v.tradeCount}</p>
-                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">
+                        {v.lastTradeAtUtc ? formatDate(v.lastTradeAtUtc) : "—"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditVendor(v)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteVendorId(v.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
-                  )}
-                </>
-              ))
+
+                    {isExpanded && (
+                      <TableRow key={`${v.id}-purchases`} className="bg-muted/30 hover:bg-muted/30">
+                        <TableCell colSpan={COL_COUNT} className="p-0">
+                          <div className="px-6 py-4 pl-12">
+                            <div className="flex items-center justify-between mb-3">
+                              <h3 className="text-sm font-semibold text-foreground">Purchases</h3>
+                              <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => openAddPurchase(v.id)}>
+                                <Plus className="h-3 w-3" /> Add
+                              </Button>
+                            </div>
+
+                            {vendorPurchases.length === 0 ? (
+                              <p className="text-sm text-muted-foreground py-4 text-center">No purchases yet.</p>
+                            ) : (
+                              <div className="rounded-lg border border-border overflow-hidden">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="bg-muted/50">
+                                      <TableHead className="text-xs">Date</TableHead>
+                                      <TableHead className="text-xs">Bought</TableHead>
+                                      <TableHead className="text-xs text-right">Qty</TableHead>
+                                      <TableHead className="text-xs">Paid With</TableHead>
+                                      <TableHead className="text-xs text-right">Paid Qty</TableHead>
+                                      <TableHead className="text-xs text-right">Cost (LCY)</TableHead>
+                                      <TableHead className="text-xs text-right">Unit Cost</TableHead>
+                                      <TableHead className="text-xs text-right">Fee (LCY)</TableHead>
+                                      <TableHead className="text-xs w-[50px]" />
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {vendorPurchases.map((p) => (
+                                      <TableRow key={p.id}>
+                                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(p.occurredAtUtc)}</TableCell>
+                                        <TableCell>
+                                          <Badge variant="outline" className={`font-mono text-xs ${getAssetColor(p.asset)}`}>{p.asset}</Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-sm">{formatNum(p.quantity)}</TableCell>
+                                        <TableCell>
+                                          <Badge variant="outline" className={`font-mono text-xs ${getAssetColor(p.paidWithAsset)}`}>{p.paidWithAsset}</Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-sm">{formatNum(p.paidWithQuantity)}</TableCell>
+                                        <TableCell className="text-right font-mono text-sm">{formatNum(p.boughtAssetCostLcy)}</TableCell>
+                                        <TableCell className="text-right font-mono text-xs text-muted-foreground">{formatNum(p.unitCostLcy, 5)}</TableCell>
+                                        <TableCell className="text-right">
+                                          <span className={`font-mono text-sm font-medium ${p.vendorFeeLcy >= 0 ? "text-accent" : "text-destructive"}`}>
+                                            {formatNum(p.vendorFeeLcy)}
+                                          </span>
+                                        </TableCell>
+                                        <TableCell>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeletePurchaseId(p.id)}>
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                );
+              })
             )}
           </TableBody>
         </Table>
       </div>
 
-      {/* Add/Edit Modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      {/* Vendor Add/Edit Modal */}
+      <Dialog open={vendorModalOpen} onOpenChange={setVendorModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editingVendor ? "Edit Vendor" : "Add Vendor"}</DialogTitle>
@@ -291,30 +427,91 @@ const Vendors = () => {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="vendor-name">Name</Label>
-              <Input id="vendor-name" placeholder="Vendor name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+              <Input id="vendor-name" placeholder="Vendor name" value={vendorForm.name} onChange={(e) => setVendorForm((f) => ({ ...f, name: e.target.value }))} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="vendor-note">Note</Label>
-              <Input id="vendor-note" placeholder="Optional note" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
+              <Input id="vendor-note" placeholder="Optional note" value={vendorForm.note} onChange={(e) => setVendorForm((f) => ({ ...f, note: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={!form.name.trim()}>{editingVendor ? "Save Changes" : "Add Vendor"}</Button>
+            <Button variant="outline" onClick={() => setVendorModalOpen(false)}>Cancel</Button>
+            <Button onClick={saveVendor} disabled={!vendorForm.name.trim()}>{editingVendor ? "Save Changes" : "Add Vendor"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirm */}
-      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
+      {/* Purchase Add Modal */}
+      <Dialog open={purchaseModalOpen} onOpenChange={setPurchaseModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Purchase</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-2">
+            <div className="space-y-2">
+              <Label>Asset (Bought)</Label>
+              <Input placeholder="e.g. EUR" value={purchaseForm.asset} onChange={(e) => setPurchaseForm((f) => ({ ...f, asset: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Quantity</Label>
+              <Input type="number" placeholder="0.00" value={purchaseForm.quantity} onChange={(e) => setPurchaseForm((f) => ({ ...f, quantity: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Paid With Asset</Label>
+              <Input placeholder="e.g. USDT-TRC20" value={purchaseForm.paidWithAsset} onChange={(e) => setPurchaseForm((f) => ({ ...f, paidWithAsset: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Paid With Quantity</Label>
+              <Input type="number" placeholder="0.00" value={purchaseForm.paidWithQuantity} onChange={(e) => setPurchaseForm((f) => ({ ...f, paidWithQuantity: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Actual Total Cost (LCY)</Label>
+              <Input type="number" placeholder="0.00" value={purchaseForm.actualTotalCostLcy} onChange={(e) => setPurchaseForm((f) => ({ ...f, actualTotalCostLcy: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Occurred At</Label>
+              <Input type="datetime-local" value={purchaseForm.occurredAtUtc} onChange={(e) => setPurchaseForm((f) => ({ ...f, occurredAtUtc: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Reference No</Label>
+              <Input placeholder="REF-XXX" value={purchaseForm.referenceNo} onChange={(e) => setPurchaseForm((f) => ({ ...f, referenceNo: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Note</Label>
+              <Input placeholder="Optional note" value={purchaseForm.note} onChange={(e) => setPurchaseForm((f) => ({ ...f, note: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPurchaseModalOpen(false)}>Cancel</Button>
+            <Button onClick={savePurchase} disabled={!purchaseForm.asset.trim()}>Add Purchase</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Vendor Confirm */}
+      <AlertDialog open={deleteVendorId !== null} onOpenChange={(open) => !open && setDeleteVendorId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Vendor</AlertDialogTitle>
+            <AlertDialogDescription>This will also delete all associated purchases. This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteVendor} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Purchase Confirm */}
+      <AlertDialog open={deletePurchaseId !== null} onOpenChange={(open) => !open && setDeletePurchaseId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Purchase</AlertDialogTitle>
             <AlertDialogDescription>This action cannot be undone. Are you sure?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDeletePurchase} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
