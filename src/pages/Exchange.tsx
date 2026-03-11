@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ArrowLeftRight, ArrowRight, Check, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeftRight, ArrowRight, Check, X, Pencil, Bitcoin, DollarSign, Euro, PoundSterling, JapaneseYen, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,19 +12,19 @@ import {
 import { toast } from "sonner";
 
 const currencies = [
-  { code: "USDT-TRC20", name: "Tether TRC20", type: "crypto", symbol: "₮" },
-  { code: "USDT-ERC20", name: "Tether ERC20", type: "crypto", symbol: "₮" },
-  { code: "BTC", name: "Bitcoin", type: "crypto", symbol: "₿" },
-  { code: "ETH", name: "Ethereum", type: "crypto", symbol: "Ξ" },
-  { code: "BNB", name: "BNB", type: "crypto", symbol: "⬡" },
-  { code: "SOL", name: "Solana", type: "crypto", symbol: "◎" },
-  { code: "XRP", name: "Ripple", type: "crypto", symbol: "✕" },
-  { code: "ADA", name: "Cardano", type: "crypto", symbol: "₳" },
-  { code: "USD", name: "US Dollar", type: "fiat", symbol: "$" },
-  { code: "EUR", name: "Euro", type: "fiat", symbol: "€" },
-  { code: "GBP", name: "British Pound", type: "fiat", symbol: "£" },
-  { code: "ARS", name: "Argentine Peso", type: "fiat", symbol: "$" },
-  { code: "BRL", name: "Brazilian Real", type: "fiat", symbol: "R$" },
+  { code: "USDT-TRC20", name: "Tether TRC20", type: "crypto", symbol: "₮", icon: "usdt" },
+  { code: "USDT-ERC20", name: "Tether ERC20", type: "crypto", symbol: "₮", icon: "usdt" },
+  { code: "BTC", name: "Bitcoin", type: "crypto", symbol: "₿", icon: "btc" },
+  { code: "ETH", name: "Ethereum", type: "crypto", symbol: "Ξ", icon: "eth" },
+  { code: "BNB", name: "BNB", type: "crypto", symbol: "⬡", icon: "bnb" },
+  { code: "SOL", name: "Solana", type: "crypto", symbol: "◎", icon: "sol" },
+  { code: "XRP", name: "Ripple", type: "crypto", symbol: "✕", icon: "xrp" },
+  { code: "ADA", name: "Cardano", type: "crypto", symbol: "₳", icon: "ada" },
+  { code: "USD", name: "US Dollar", type: "fiat", symbol: "$", icon: "usd" },
+  { code: "EUR", name: "Euro", type: "fiat", symbol: "€", icon: "eur" },
+  { code: "GBP", name: "British Pound", type: "fiat", symbol: "£", icon: "gbp" },
+  { code: "ARS", name: "Argentine Peso", type: "fiat", symbol: "$", icon: "ars" },
+  { code: "BRL", name: "Brazilian Real", type: "fiat", symbol: "R$", icon: "brl" },
 ];
 
 const rates: Record<string, number> = {
@@ -35,6 +35,47 @@ const rates: Record<string, number> = {
 
 const FEE_OPTIONS = [0.5, 1, 1.5, 2, 2.5, 3, 5];
 
+// Color map for currency icons
+const iconColors: Record<string, string> = {
+  btc: "text-orange-500 bg-orange-500/15",
+  eth: "text-indigo-400 bg-indigo-400/15",
+  usdt: "text-emerald-500 bg-emerald-500/15",
+  bnb: "text-yellow-500 bg-yellow-500/15",
+  sol: "text-purple-400 bg-purple-400/15",
+  xrp: "text-blue-400 bg-blue-400/15",
+  ada: "text-sky-400 bg-sky-400/15",
+  usd: "text-green-500 bg-green-500/15",
+  eur: "text-blue-500 bg-blue-500/15",
+  gbp: "text-violet-500 bg-violet-500/15",
+  ars: "text-cyan-500 bg-cyan-500/15",
+  brl: "text-lime-500 bg-lime-500/15",
+};
+
+const CurrencyIcon = ({ icon, size = "md" }: { icon: string; size?: "sm" | "md" }) => {
+  const sizeClass = size === "sm" ? "h-7 w-7" : "h-9 w-9";
+  const iconSize = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
+  const colors = iconColors[icon] || "text-muted-foreground bg-muted";
+
+  const IconComponent = () => {
+    switch (icon) {
+      case "btc": return <Bitcoin className={iconSize} />;
+      case "eth": return <Coins className={iconSize} />;
+      case "usd": return <DollarSign className={iconSize} />;
+      case "eur": return <Euro className={iconSize} />;
+      case "gbp": return <PoundSterling className={iconSize} />;
+      case "ars": return <DollarSign className={iconSize} />;
+      case "brl": return <DollarSign className={iconSize} />;
+      default: return <Coins className={iconSize} />;
+    }
+  };
+
+  return (
+    <div className={`${sizeClass} rounded-full flex items-center justify-center ${colors} shrink-0`}>
+      <IconComponent />
+    </div>
+  );
+};
+
 const Exchange = () => {
   // Step 1
   const [amount, setAmount] = useState("");
@@ -44,7 +85,13 @@ const Exchange = () => {
   // Step 2
   const [step, setStep] = useState<1 | 2>(1);
   const [feePercent, setFeePercent] = useState(2);
+  const [editingFee, setEditingFee] = useState(false);
+  const [feeInput, setFeeInput] = useState("2");
   const [gasFee, setGasFee] = useState("");
+
+  // Editable total
+  const [editingTotal, setEditingTotal] = useState(false);
+  const [totalOverride, setTotalOverride] = useState<string>("");
 
   const buyCurrencyData = currencies.find((c) => c.code === buyCurrency);
   const payCurrencyData = currencies.find((c) => c.code === payCurrency);
@@ -54,17 +101,27 @@ const Exchange = () => {
   const amountNum = parseFloat(amount) || 0;
   const buyRateUsd = rates[buyCurrency] || 1;
   const payRateUsd = rates[payCurrency] || 1;
-  // Cost in payment currency (before fee)
   const baseCost = (amountNum * buyRateUsd) / payRateUsd;
   const feeAmount = baseCost * (feePercent / 100);
   const gasFeeNum = parseFloat(gasFee) || 0;
-  const totalCost = baseCost + feeAmount;
+  const computedTotal = baseCost + feeAmount;
+
+  // Effective total (might be overridden)
+  const effectiveTotal = totalOverride !== "" ? (parseFloat(totalOverride) || 0) : computedTotal;
+  const adjustment = effectiveTotal - computedTotal;
+  const hasAdjustment = totalOverride !== "" && Math.abs(adjustment) > 0.001;
 
   const canProceed = !!amount && amountNum > 0 && !!buyCurrency && !!payCurrency && buyCurrency !== payCurrency;
+
+  // Reset total override when fee changes
+  useEffect(() => {
+    setTotalOverride("");
+  }, [feePercent]);
 
   const handleNext = () => {
     if (!canProceed) return;
     setStep(2);
+    setTotalOverride("");
   };
 
   const handleDiscard = () => {
@@ -74,13 +131,39 @@ const Exchange = () => {
     setPayCurrency("");
     setGasFee("");
     setFeePercent(2);
+    setFeeInput("2");
+    setTotalOverride("");
+    setEditingFee(false);
+    setEditingTotal(false);
   };
 
   const handleSave = () => {
     toast.success("Exchange recorded successfully", {
-      description: `${amountNum.toLocaleString()} ${buyCurrency} → ${totalCost.toFixed(2)} ${payCurrency}`,
+      description: `${amountNum.toLocaleString()} ${buyCurrency} → ${effectiveTotal.toFixed(2)} ${payCurrency}`,
     });
     handleDiscard();
+  };
+
+  const handleFeeEdit = () => {
+    setEditingFee(true);
+    setFeeInput(String(feePercent));
+  };
+
+  const handleFeeConfirm = () => {
+    const val = parseFloat(feeInput);
+    if (!isNaN(val) && val >= 0 && val <= 100) {
+      setFeePercent(val);
+    }
+    setEditingFee(false);
+  };
+
+  const handleTotalEdit = () => {
+    setEditingTotal(true);
+    setTotalOverride(totalOverride || String(computedTotal.toFixed(2)));
+  };
+
+  const handleTotalConfirm = () => {
+    setEditingTotal(false);
   };
 
   const formatNum = (n: number, decimals = 2) =>
@@ -117,7 +200,6 @@ const Exchange = () => {
 
           {step === 1 && (
             <>
-              {/* Customer wants to buy */}
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
                 Customer wants to buy
               </label>
@@ -150,7 +232,6 @@ const Exchange = () => {
                 </Select>
               </div>
 
-              {/* Divider */}
               <div className="flex items-center gap-3 my-6">
                 <div className="flex-1 h-px bg-border" />
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-widest">
@@ -160,7 +241,6 @@ const Exchange = () => {
                 <div className="flex-1 h-px bg-border" />
               </div>
 
-              {/* Payment currency */}
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
                 Payment currency
               </label>
@@ -199,28 +279,37 @@ const Exchange = () => {
 
           {step === 2 && (
             <>
-              {/* Recap */}
+              {/* Recap with icons */}
               <div className="p-4 bg-muted rounded-xl border border-border mb-6">
-                <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold mb-2">Customer wants to buy</p>
-                <p className="text-xl font-bold font-mono">
-                  {buyCurrencyData?.symbol}{formatNum(amountNum)} <span className="text-sm text-muted-foreground font-sans">{buyCurrency}</span>
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Paying with <span className="font-semibold text-foreground">{payCurrency}</span>
-                </p>
+                <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold mb-3">Customer wants to buy</p>
+                <div className="flex items-center gap-3">
+                  {buyCurrencyData && <CurrencyIcon icon={buyCurrencyData.icon} />}
+                  <div>
+                    <p className="text-xl font-bold font-mono">
+                      {buyCurrencyData?.symbol}{formatNum(amountNum)}
+                      <span className="text-sm text-muted-foreground font-sans ml-2">{buyCurrency}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Paying with</span>
+                  {payCurrencyData && <CurrencyIcon icon={payCurrencyData.icon} size="sm" />}
+                  <span className="font-semibold text-sm">{payCurrency}</span>
+                </div>
               </div>
 
-              {/* Fee selector */}
+              {/* Fee selector — presets + editable */}
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
                 Platform fee
               </label>
-              <div className="flex flex-wrap gap-2 mt-2 mb-4">
+              <div className="flex flex-wrap items-center gap-2 mt-2 mb-4">
                 {FEE_OPTIONS.map((f) => (
                   <button
                     key={f}
-                    onClick={() => setFeePercent(f)}
+                    onClick={() => { setFeePercent(f); setEditingFee(false); setFeeInput(String(f)); }}
                     className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                      feePercent === f
+                      !editingFee && feePercent === f
                         ? "bg-primary text-primary-foreground shadow-md"
                         : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
                     }`}
@@ -228,6 +317,35 @@ const Exchange = () => {
                     {f}%
                   </button>
                 ))}
+                {/* Custom fee */}
+                {editingFee ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      value={feeInput}
+                      onChange={(e) => setFeeInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleFeeConfirm()}
+                      className="w-20 h-9 text-sm font-mono text-center bg-background"
+                      autoFocus
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                    <Button size="sm" variant="ghost" onClick={handleFeeConfirm} className="h-8 w-8 p-0">
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleFeeEdit}
+                    className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${
+                      !FEE_OPTIONS.includes(feePercent)
+                        ? "bg-primary text-primary-foreground shadow-md"
+                        : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    <Pencil className="h-3 w-3" />
+                    {!FEE_OPTIONS.includes(feePercent) ? `${feePercent}%` : "Custom"}
+                  </button>
+                )}
               </div>
 
               {/* Breakdown */}
@@ -254,11 +372,47 @@ const Exchange = () => {
                   </div>
                 )}
 
-                <div className="flex justify-between text-base pt-3 border-t border-border">
+                {hasAdjustment && (
+                  <div className="flex justify-between text-sm">
+                    <span className={adjustment > 0 ? "text-accent" : "text-destructive"}>
+                      Adjustment
+                    </span>
+                    <span className={`font-mono font-semibold ${adjustment > 0 ? "text-accent" : "text-destructive"}`}>
+                      {adjustment > 0 ? "+" : ""}{payCurrencyData?.symbol}{formatNum(adjustment)} {payCurrency}
+                    </span>
+                  </div>
+                )}
+
+                {/* Total — editable on click */}
+                <div className="flex justify-between items-center text-base pt-3 border-t border-border">
                   <span className="font-semibold">Total customer pays</span>
-                  <span className="font-mono font-bold text-primary text-lg">
-                    {payCurrencyData?.symbol}{formatNum(totalCost)} {payCurrency}
-                  </span>
+                  {editingTotal ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-primary font-mono font-bold">{payCurrencyData?.symbol}</span>
+                      <Input
+                        type="number"
+                        value={totalOverride}
+                        onChange={(e) => setTotalOverride(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleTotalConfirm()}
+                        className="w-36 h-9 text-right font-mono text-base font-bold bg-background"
+                        autoFocus
+                      />
+                      <span className="text-sm text-muted-foreground ml-1">{payCurrency}</span>
+                      <Button size="sm" variant="ghost" onClick={handleTotalConfirm} className="h-8 w-8 p-0">
+                        <Check className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleTotalEdit}
+                      className="flex items-center gap-2 group cursor-pointer"
+                    >
+                      <span className="font-mono font-bold text-primary text-lg">
+                        {payCurrencyData?.symbol}{formatNum(effectiveTotal)} {payCurrency}
+                      </span>
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  )}
                 </div>
 
                 {isBuyingFiat && gasFeeNum > 0 && (
