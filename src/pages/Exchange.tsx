@@ -105,6 +105,21 @@ const Exchange = () => {
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
 
+  // Rates refresh
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefreshRates = () => {
+    setRefreshing(true);
+    // Simulate rate refresh — replace with real API call later
+    setTimeout(() => {
+      setLastUpdated(new Date());
+      setRefreshing(false);
+      setResult(null);
+      toast.success("Rates refreshed");
+    }, 600);
+  };
+
   const buyCurrencyData = currencies.find((c) => c.code === buyCurrency);
   const payCurrencyData = currencies.find((c) => c.code === payCurrency);
   const isBuyingFiat = buyCurrencyData?.type === "fiat";
