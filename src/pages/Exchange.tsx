@@ -85,6 +85,7 @@ const CurrencyIcon = ({ icon, size = "md" }: { icon: string; size?: "sm" | "md" 
 
 const Exchange = () => {
   // Step 1
+  const [mode, setMode] = useState<"wants" | "has">("wants");
   const [amount, setAmount] = useState("");
   const [buyCurrency, setBuyCurrency] = useState("");
   const [payCurrency, setPayCurrency] = useState("");
@@ -286,8 +287,32 @@ const Exchange = () => {
 
           {step === 1 && (
             <>
+              {/* Mode toggle */}
+              <div className="flex rounded-lg bg-muted p-1 mb-6">
+                <button
+                  onClick={() => setMode("wants")}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${
+                    mode === "wants"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Customer Wants
+                </button>
+                <button
+                  onClick={() => setMode("has")}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${
+                    mode === "has"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Customer Has
+                </button>
+              </div>
+
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                Customer wants to buy
+                {mode === "wants" ? "Customer wants to buy" : "Customer has"}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 mb-6">
                 <Input
@@ -322,13 +347,13 @@ const Exchange = () => {
                 <div className="flex-1 h-px bg-border" />
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-widest">
                   <ArrowRight className="h-3.5 w-3.5" />
-                  PAYING WITH
+                  {mode === "wants" ? "PAYING WITH" : "WANTS TO GET"}
                 </div>
                 <div className="flex-1 h-px bg-border" />
               </div>
 
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                Payment currency
+                {mode === "wants" ? "Payment currency" : "Target currency"}
               </label>
               <div className="mt-2 mb-8">
                 <Select value={payCurrency} onValueChange={setPayCurrency}>
@@ -375,7 +400,7 @@ const Exchange = () => {
               <div className="rounded-xl border border-border overflow-hidden mb-6">
                 {/* Row: Customer Wants To Buy */}
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
-                  <span className="text-sm text-muted-foreground">Customer Wants To Buy</span>
+                  <span className="text-sm text-muted-foreground">{mode === "wants" ? "Customer Wants To Buy" : "Customer Has"}</span>
                   <div className="flex items-center gap-2">
                     {buyCurrencyData && <CurrencyIcon icon={buyCurrencyData.icon} size="sm" />}
                     <span className="font-mono font-semibold text-sm">
