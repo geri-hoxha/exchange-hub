@@ -121,17 +121,17 @@ export const ProfitSection = ({ report, error, loading, onRetry }: Props) => {
             )}
 
             <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" className="font-mono text-[10px]">
+              <Badge variant="outline" className="font-mono text-xs">
                 customer fees: {formatNum(report.customerFees.totalFeeLcy)}
               </Badge>
-              <Badge variant="outline" className="font-mono text-[10px]">
+              <Badge variant="outline" className="font-mono text-xs">
                 vendor fee: {formatNum(report.vendorFees.totalFeeLcy)}
               </Badge>
-              <Badge variant="outline" className="font-mono text-[10px]">
+              <Badge variant="outline" className="font-mono text-xs">
                 withdrawals: {formatNum(report.ownerContributions.totalWithdrawalsLcy)}
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">{report.explanation}</p>
+            <p className="text-sm text-muted-foreground">{report.explanation}</p>
           </div>
         )}
       </div>
