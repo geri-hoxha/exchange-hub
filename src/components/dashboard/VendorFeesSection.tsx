@@ -136,13 +136,13 @@ export const VendorFeesSection = ({ report, error, loading, onRetry }: Props) =>
             <TableBody>
               {report.vendors.map((v) => (
                 <TableRow key={v.vendorId}>
-                  <TableCell className="font-medium text-sm">{v.vendorName}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{v.totalPurchases}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{formatNum(v.totalFeeLcy)}</TableCell>
+                  <TableCell className="font-medium text-base">{v.vendorName}</TableCell>
+                  <TableCell className="text-right font-mono text-base">{v.totalPurchases}</TableCell>
+                  <TableCell className="text-right font-mono text-base">{formatNum(v.totalFeeLcy)}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {v.assets.map((a) => (
-                        <Badge key={a.asset} variant="outline" className="font-mono text-[10px]">
+                        <Badge key={a.asset} variant="outline" className="font-mono text-xs">
                           {a.asset}: {a.purchaseCount}×, fee {formatNum(a.totalFeeLcy)}
                         </Badge>
                       ))}

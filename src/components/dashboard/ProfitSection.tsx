@@ -80,8 +80,8 @@ export const ProfitSection = ({ report, error, loading, onRetry }: Props) => {
       <div className="grid grid-cols-2 gap-3 p-4 border-b border-border">
         {stats.map((s) => (
           <div key={s.label} className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
-              <s.icon className="h-4 w-4 text-accent" />
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <s.icon className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0">
               <p className="text-[11px] text-muted-foreground leading-tight">{s.label}</p>
