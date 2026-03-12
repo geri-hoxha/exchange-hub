@@ -43,14 +43,7 @@ export interface VendorFeesReport {
 const formatNum = (n: number) =>
   n.toLocaleString(undefined, { maximumFractionDigits: 20 });
 
-const COLORS = [
-  "hsl(217, 91%, 40%)",
-  "hsl(160, 84%, 39%)",
-  "hsl(38, 92%, 50%)",
-  "hsl(0, 84%, 60%)",
-  "hsl(270, 70%, 55%)",
-  "hsl(190, 80%, 42%)",
-];
+const RANK_COLORS = ["text-yellow-500", "text-muted-foreground", "text-amber-700"];
 
 interface Props {
   report: VendorFeesReport | null;
