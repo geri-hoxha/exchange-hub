@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeftRight, ArrowRight, Check, X, Pencil, DollarSign, Euro, PoundSterling, Coins, Download, Share2, RefreshCw, ChevronsUpDown } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, Check, X, Pencil, Download, Share2, RefreshCw, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -22,66 +22,12 @@ import {
 import api from "@/lib/axios";
 import { getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
+import { CurrencyIcon } from "@/components/CurrencyIcon";
 import { getAllAssets, type Asset } from "@/services/assetsService";
 
-import btcIcon from "@/assets/crypto/btc.png";
-import ethIcon from "@/assets/crypto/eth.png";
-import usdtErc20Icon from "@/assets/crypto/usdt-erc20.png";
-import usdtTrc20Icon from "@/assets/crypto/usdt-trc20.png";
-import trxIcon from "@/assets/crypto/trx.png";
-
-// Image map for crypto currencies
-const cryptoImages: Record<string, string> = {
-  btc: btcIcon,
-  eth: ethIcon,
-  "usdt-erc20": usdtErc20Icon,
-  "usdt_erc20": usdtErc20Icon,
-  "usdterc20": usdtErc20Icon,
-  "usdt-trc20": usdtTrc20Icon,
-  "usdt_trc20": usdtTrc20Icon,
-  "usdttrc20": usdtTrc20Icon,
-  usdt: usdtErc20Icon,
-  trx: trxIcon,
-};
-
-// Color map for fiat currency icons
-const iconColors: Record<string, string> = {
-  usd: "text-green-500 bg-green-500/15",
-  eur: "text-blue-500 bg-blue-500/15",
-  gbp: "text-violet-500 bg-violet-500/15",
-  ars: "text-cyan-500 bg-cyan-500/15",
-  brl: "text-lime-500 bg-lime-500/15",
-};
-
-const CurrencyIcon = ({ icon, size = "md" }: { icon: string; size?: "sm" | "md" }) => {
-  const sizeClass = size === "sm" ? "h-7 w-7" : "h-9 w-9";
-  const iconSize = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
-  const imgSize = size === "sm" ? "h-7 w-7" : "h-9 w-9";
-
-  const cryptoImg = cryptoImages[icon.toLowerCase()];
-  if (cryptoImg) {
-    return <img src={cryptoImg} alt={icon} className={`${imgSize} rounded-full object-contain shrink-0`} />;
-  }
-
-  const colors = iconColors[icon] || "text-muted-foreground bg-muted";
-  const FiatIcon = () => {
-    switch (icon) {
-      case "usd": return <DollarSign className={iconSize} />;
-      case "eur": return <Euro className={iconSize} />;
-      case "gbp": return <PoundSterling className={iconSize} />;
-      case "ars": return <DollarSign className={iconSize} />;
-      case "brl": return <DollarSign className={iconSize} />;
-      default: return <Coins className={iconSize} />;
-    }
-  };
-
-  return (
-    <div className={`${sizeClass} rounded-full flex items-center justify-center ${colors} shrink-0`}>
-      <FiatIcon />
-    </div>
-  );
-};
-
+ 
+ 
+ 
 type ExchangeAsset = Asset & {
   symbol?: string;
   icon?: string;
@@ -400,6 +346,14 @@ const Exchange = () => {
     ? currencies.filter((c) => c.type === payCurrencyTypeFilter)
     : currencies;
   const selectedCustomer = customers.find((customer) => customer.id === customerId);
+  const renderCurrencyOption = (asset: ExchangeAsset) => (
+    <SelectItem key={asset.code} value={asset.code}>
+      <div className="flex items-center gap-2">
+        <CurrencyIcon code={asset.code} />
+        <span className="font-mono">{asset.code}</span>
+      </div>
+    </SelectItem>
+  );
 
   return (
     <div>
@@ -489,17 +443,9 @@ const Exchange = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest">Crypto</div>
-                    {currencies.filter(c => c.type === "crypto").map((c) => (
-                      <SelectItem key={c.code} value={c.code}>
-                        <span className="font-mono mr-1">{c.symbol ?? c.code}</span> {c.code}
-                      </SelectItem>
-                    ))}
+                    {currencies.filter(c => c.type === "crypto").map((c) => renderCurrencyOption(c))}
                     <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Fiat</div>
-                    {currencies.filter(c => c.type === "fiat").map((c) => (
-                      <SelectItem key={c.code} value={c.code}>
-                        <span className="font-mono mr-1">{c.symbol ?? c.code}</span> {c.code}
-                      </SelectItem>
-                    ))}
+                    {currencies.filter(c => c.type === "fiat").map((c) => renderCurrencyOption(c))}
                   </SelectContent>
                 </Select>
               </div>
@@ -525,11 +471,7 @@ const Exchange = () => {
                     <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest">
                       {payCurrencyTypeFilter === "crypto" ? "Crypto" : payCurrencyTypeFilter === "fiat" ? "Fiat" : "All"}
                     </div>
-                    {payCurrencyOptions.map((c) => (
-                      <SelectItem key={c.code} value={c.code}>
-                        <span className="font-mono mr-1">{c.symbol ?? c.code}</span> {c.code}
-                      </SelectItem>
-                    ))}
+                    {payCurrencyOptions.map((c) => renderCurrencyOption(c))}
                   </SelectContent>
                 </Select>
               </div>
@@ -559,7 +501,7 @@ const Exchange = () => {
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
                   <span className="text-sm text-muted-foreground">{mode === "wants" ? "Customer Wants To Buy" : "Customer Has"}</span>
                   <div className="flex items-center gap-2">
-                    {primaryAsset && <CurrencyIcon icon={primaryAsset} size="sm" />}
+                    {primaryAsset && <CurrencyIcon code={primaryAsset} />}
                     <span className="font-mono font-semibold text-sm">
                       {formatNum(primaryAmount)} {primaryAsset}
                     </span>
@@ -578,7 +520,7 @@ const Exchange = () => {
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
                   <span className="text-sm text-muted-foreground">Subtotal</span>
                   <div className="flex items-center gap-2">
-                    {quotedCustomerPaysAsset && <CurrencyIcon icon={quotedCustomerPaysAsset} size="sm" />}
+                    {quotedCustomerPaysAsset && <CurrencyIcon code={quotedCustomerPaysAsset} />}
                     <span className="font-mono font-semibold text-sm">
                       {formatNum(subtotal)} {quotedCustomerPaysAsset}
                     </span>
