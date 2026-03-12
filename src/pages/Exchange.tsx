@@ -537,9 +537,9 @@ const Exchange = () => {
                   </div>
                 </div>
 
-                {/* Row: Platform Fee — editable on click */}
+                {/* Row: Platform Fee — editable percentage on click */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border last:border-b-0">
-                  <span className="text-sm text-muted-foreground">Platform Fee <span className="text-primary text-xs">({formatNum(feePercent)}%)</span></span>
+                  <span className="text-xs font-medium text-muted-foreground">Platform Fee</span>
                   {editingFee ? (
                     <div className="flex items-center gap-1.5">
                       <Input
@@ -547,16 +547,18 @@ const Exchange = () => {
                         value={feeOverride}
                         onChange={(e) => setFeeOverride(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && setEditingFee(false)}
-                        className="w-28 h-8 text-right font-mono text-sm bg-background"
+                        className="w-20 h-8 text-right font-mono text-sm bg-background"
                         autoFocus
                       />
-                      <span className="text-xs text-muted-foreground">{quotedCustomerPaysAsset}</span>
+                      <span className="text-xs text-muted-foreground">%</span>
                       <Button size="sm" variant="ghost" onClick={() => setEditingFee(false)} className="h-7 w-7 p-0">
                         <Check className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   ) : (
-                    <button onClick={() => { setEditingFee(true); setFeeOverride(feeOverride || String(effectiveFeeAmount)); }} className="group flex items-center gap-1.5 cursor-pointer">
+                    <button onClick={() => { setEditingFee(true); setFeeOverride(feeOverride || String(effectiveFeePercent)); }} className="group flex items-center gap-1.5 cursor-pointer">
+                      <span className="text-primary font-semibold text-sm">{formatNum(effectiveFeePercent)}%</span>
+                      <span className="text-muted-foreground text-xs">→</span>
                       <span className="font-mono font-semibold text-sm">
                         {formatNum(effectiveFeeAmount)} {quotedCustomerPaysAsset}
                       </span>
