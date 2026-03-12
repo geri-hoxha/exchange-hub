@@ -7,15 +7,14 @@ export interface Asset {
   type: "crypto" | "fiat";
 }
 
-interface AssetsResponse {
-  value: string[];
-}
+type AssetsResponse =  string[];
+
 
 export const getAssets = async (type: AssetType = "Both") => {
   const response = await api.get<AssetsResponse>("/api/assets", {
     params: { type },
   });
-  return response.data.value;
+  return response.data;
 };
 
 export const getAllAssets = async (): Promise<Asset[]> => {

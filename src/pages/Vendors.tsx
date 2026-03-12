@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import api from "@/lib/axios";
 
 // --- Asset colors ---
 const assetColors: Record<string, string> = {
@@ -47,44 +48,32 @@ interface VendorPurchase {
   quantity: number;
   paidWithAsset: string;
   paidWithQuantity: number;
-  boughtAssetCostLcy: number;
-  paidWithAssetCostLcy: number;
-  unitCostLcy: number;
-  vendorFeeLcy: number;
+  actualTotalCostLcy?: number;
+  boughtAssetCostLcy?: number;
+  paidWithAssetCostLcy?: number;
+  unitCostLcy?: number;
+  vendorFeeLcy?: number;
   createdAtUtc: string;
 }
 
 interface Vendor {
   id: number;
   name: string;
-  note: string;
   createdAtUtc: string;
   tradeCount: number;
   totalVolumeLcy: number;
   netFeeLcy: number;
-  lastTradeAtUtc: string;
+  lastTradeAtUtc: string | null;
   volumes: VolumeEntry[];
 }
 
-// --- Initial data ---
-const initialVendors: Vendor[] = [
-  {
-    id: 1, name: "Jax", note: "",
-    createdAtUtc: "2026-03-06T03:20:09.1658196+00:00",
-    tradeCount: 1, totalVolumeLcy: 1000, netFeeLcy: -49.52,
-    lastTradeAtUtc: "2026-03-06T14:49:00+00:00",
-    volumes: [{ asset: "EUR", quantity: 1000 }],
-  },
-];
+interface VendorsResponse {
+  items: Vendor[];
+}
 
-const initialPurchases: VendorPurchase[] = [
-  {
-    id: 10003, vendorId: 1, occurredAtUtc: "2026-03-06T14:49:00+00:00",
-    asset: "EUR", quantity: 1000, paidWithAsset: "USDT-TRC20", paidWithQuantity: 1100,
-    boughtAssetCostLcy: 1000, paidWithAssetCostLcy: 950.48, unitCostLcy: 0.95048,
-    vendorFeeLcy: -49.52, createdAtUtc: "2026-03-06T15:49:43.0878695+00:00",
-  },
-];
+interface VendorPurchasesResponse {
+  items: VendorPurchase[];
+}
 
 // --- Helpers ---
 const formatDate = (iso: string) =>
@@ -97,7 +86,7 @@ type SortField = "name" | "tradeCount" | "totalVolumeLcy" | "netFeeLcy" | "lastT
 type TradeFilter = "all" | "1+" | "5+" | "10+";
 type FeeFilter = "all" | "positive" | "negative";
 
-const emptyVendorForm = { name: "", note: "" };
+const emptyVendorForm = { name: "" };
 
 const emptyPurchaseForm = {
   asset: "", quantity: "", paidWithAsset: "", paidWithQuantity: "",
@@ -106,11 +95,18 @@ const emptyPurchaseForm = {
   referenceNo: "", note: "",
 };
 
-const COL_COUNT = 9;
+const COL_COUNT = 8;
 
 const Vendors = () => {
-  const [vendors, setVendors] = useState<Vendor[]>(initialVendors);
-  const [purchases, setPurchases] = useState<VendorPurchase[]>(initialPurchases);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [purchasesByVendor, setPurchasesByVendor] = useState<Record<number, VendorPurchase[]>>({});
+  const [loadingPurchaseVendorIds, setLoadingPurchaseVendorIds] = useState<Set<number>>(new Set());
+  const [savingPurchase, setSavingPurchase] = useState(false);
+  const [deletingPurchase, setDeletingPurchase] = useState(false);
+  const [loadingVendors, setLoadingVendors] = useState(true);
+  const [vendorsError, setVendorsError] = useState<string | null>(null);
+  const [savingVendor, setSavingVendor] = useState(false);
+  const [deletingVendor, setDeletingVendor] = useState(false);
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<SortField>("name");
@@ -129,22 +125,71 @@ const Vendors = () => {
 
   // Delete
   const [deleteVendorId, setDeleteVendorId] = useState<number | null>(null);
-  const [deletePurchaseId, setDeletePurchaseId] = useState<number | null>(null);
+  const [deletePurchase, setDeletePurchase] = useState<{ id: number; vendorId: number } | null>(null);
+
+  const fetchVendors = useCallback(async () => {
+    try {
+      setLoadingVendors(true);
+      setVendorsError(null);
+      const response = await api.get<VendorsResponse>("/api/vendors");
+      setVendors(response.data.items ?? []);
+    } catch {
+      setVendorsError("Failed to load vendors.");
+      setVendors([]);
+    } finally {
+      setLoadingVendors(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchVendors();
+  }, [fetchVendors]);
+
+  const fetchVendorPurchases = useCallback(async (vendorId: number) => {
+    try {
+      setLoadingPurchaseVendorIds((prev) => {
+        const next = new Set(prev);
+        next.add(vendorId);
+        return next;
+      });
+
+      const response = await api.get<VendorPurchasesResponse | VendorPurchase[]>("/api/vendor-purchases", {
+        params: { vendorId },
+      });
+      const items = Array.isArray(response.data) ? response.data : (response.data.items ?? []);
+      setPurchasesByVendor((prev) => ({ ...prev, [vendorId]: items }));
+    } catch {
+      setVendorsError("Failed to load vendor purchases.");
+      setPurchasesByVendor((prev) => ({ ...prev, [vendorId]: [] }));
+    } finally {
+      setLoadingPurchaseVendorIds((prev) => {
+        const next = new Set(prev);
+        next.delete(vendorId);
+        return next;
+      });
+    }
+  }, []);
 
   const activeFilterCount = [tradeFilter !== "all", feeFilter !== "all"].filter(Boolean).length;
   const clearFilters = () => { setSearch(""); setTradeFilter("all"); setFeeFilter("all"); setSortBy("name"); };
 
-  const toggleExpand = (id: number) =>
+  const toggleExpand = (id: number) => {
+    const willExpand = !expanded.has(id);
     setExpanded((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
 
+    if (willExpand && purchasesByVendor[id] === undefined) {
+      void fetchVendorPurchases(id);
+    }
+  };
+
   const filtered = useMemo(() => {
     let result = vendors.filter((v) =>
-      v.name.toLowerCase().includes(search.toLowerCase()) ||
-      v.note.toLowerCase().includes(search.toLowerCase())
+      v.name.toLowerCase().includes(search.toLowerCase())
     );
 
     if (tradeFilter === "1+") result = result.filter((v) => v.tradeCount >= 1);
@@ -159,7 +204,7 @@ const Vendors = () => {
       if (sortBy === "tradeCount") return b.tradeCount - a.tradeCount;
       if (sortBy === "totalVolumeLcy") return b.totalVolumeLcy - a.totalVolumeLcy;
       if (sortBy === "netFeeLcy") return b.netFeeLcy - a.netFeeLcy;
-      if (sortBy === "lastTradeAtUtc") return new Date(b.lastTradeAtUtc).getTime() - new Date(a.lastTradeAtUtc).getTime();
+      if (sortBy === "lastTradeAtUtc") return new Date(b.lastTradeAtUtc ?? 0).getTime() - new Date(a.lastTradeAtUtc ?? 0).getTime();
       return 0;
     });
     return result;
@@ -167,24 +212,45 @@ const Vendors = () => {
 
   // Vendor CRUD
   const openAddVendor = () => { setEditingVendor(null); setVendorForm(emptyVendorForm); setVendorModalOpen(true); };
-  const openEditVendor = (v: Vendor) => { setEditingVendor(v); setVendorForm({ name: v.name, note: v.note }); setVendorModalOpen(true); };
-  const saveVendor = () => {
+  const openEditVendor = (v: Vendor) => { setEditingVendor(v); setVendorForm({ name: v.name }); setVendorModalOpen(true); };
+  const saveVendor = async () => {
     if (!vendorForm.name.trim()) return;
-    if (editingVendor) {
-      setVendors((prev) => prev.map((v) => v.id === editingVendor.id ? { ...v, name: vendorForm.name, note: vendorForm.note } : v));
-    } else {
-      setVendors((prev) => [...prev, {
-        id: Date.now(), name: vendorForm.name, note: vendorForm.note, createdAtUtc: new Date().toISOString(),
-        tradeCount: 0, totalVolumeLcy: 0, netFeeLcy: 0, lastTradeAtUtc: "", volumes: [],
-      }]);
+
+    const payload = { name: vendorForm.name.trim() };
+
+    try {
+      setSavingVendor(true);
+      if (editingVendor) {
+        await api.put(`/api/vendors/${editingVendor.id}`, payload);
+      } else {
+        await api.post("/api/vendors", payload);
+      }
+      await fetchVendors();
+      setVendorModalOpen(false);
+    } catch {
+      setVendorsError(editingVendor ? "Failed to update vendor." : "Failed to create vendor.");
+    } finally {
+      setSavingVendor(false);
     }
-    setVendorModalOpen(false);
   };
-  const confirmDeleteVendor = () => {
-    if (deleteVendorId !== null) {
-      setVendors((prev) => prev.filter((v) => v.id !== deleteVendorId));
-      setPurchases((prev) => prev.filter((p) => p.vendorId !== deleteVendorId));
+
+  const confirmDeleteVendor = async () => {
+    if (deleteVendorId === null) return;
+
+    try {
+      setDeletingVendor(true);
+      await api.delete(`/api/vendors/${deleteVendorId}`);
+      setPurchasesByVendor((prev) => {
+        const next = { ...prev };
+        delete next[deleteVendorId];
+        return next;
+      });
+      await fetchVendors();
       setDeleteVendorId(null);
+    } catch {
+      setVendorsError("Failed to delete vendor.");
+    } finally {
+      setDeletingVendor(false);
     }
   };
 
@@ -194,29 +260,45 @@ const Vendors = () => {
     setPurchaseForm(emptyPurchaseForm);
     setPurchaseModalOpen(true);
   };
-  const savePurchase = () => {
+  const savePurchase = async () => {
     if (!purchaseForm.asset.trim() || !purchaseVendorId) return;
-    const newPurchase: VendorPurchase = {
-      id: Date.now(),
+
+    const payload = {
       vendorId: purchaseVendorId,
-      asset: purchaseForm.asset,
+      asset: purchaseForm.asset.trim(),
       quantity: parseFloat(purchaseForm.quantity) || 0,
-      paidWithAsset: purchaseForm.paidWithAsset,
+      paidWithAsset: purchaseForm.paidWithAsset.trim(),
       paidWithQuantity: parseFloat(purchaseForm.paidWithQuantity) || 0,
-      boughtAssetCostLcy: parseFloat(purchaseForm.actualTotalCostLcy) || 0,
-      paidWithAssetCostLcy: 0,
-      unitCostLcy: 0,
-      vendorFeeLcy: 0,
+      actualTotalCostLcy: parseFloat(purchaseForm.actualTotalCostLcy) || 0,
       occurredAtUtc: new Date(purchaseForm.occurredAtUtc).toISOString(),
-      createdAtUtc: new Date().toISOString(),
+      referenceNo: purchaseForm.referenceNo.trim(),
+      note: purchaseForm.note.trim(),
     };
-    setPurchases((prev) => [...prev, newPurchase]);
-    setPurchaseModalOpen(false);
+
+    try {
+      setSavingPurchase(true);
+      await api.post("/api/vendor-purchases", payload);
+      await Promise.all([fetchVendorPurchases(purchaseVendorId), fetchVendors()]);
+      setPurchaseModalOpen(false);
+    } catch {
+      setVendorsError("Failed to create purchase.");
+    } finally {
+      setSavingPurchase(false);
+    }
   };
-  const confirmDeletePurchase = () => {
-    if (deletePurchaseId !== null) {
-      setPurchases((prev) => prev.filter((p) => p.id !== deletePurchaseId));
-      setDeletePurchaseId(null);
+
+  const confirmDeletePurchase = async () => {
+    if (!deletePurchase) return;
+
+    try {
+      setDeletingPurchase(true);
+      await api.delete(`/api/vendor-purchases/${deletePurchase.id}`);
+      await Promise.all([fetchVendorPurchases(deletePurchase.vendorId), fetchVendors()]);
+      setDeletePurchase(null);
+    } catch {
+      setVendorsError("Failed to delete purchase.");
+    } finally {
+      setDeletingPurchase(false);
     }
   };
 
@@ -224,7 +306,7 @@ const Vendors = () => {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Vendors</h1>
-        <Button className="gap-2" onClick={openAddVendor}>
+        <Button className="gap-2" onClick={openAddVendor} disabled={loadingVendors}>
           <Plus className="h-4 w-4" /> Add Vendor
         </Button>
       </div>
@@ -234,7 +316,7 @@ const Vendors = () => {
         <div className="p-3 border-b border-border flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-48">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" />
+            <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" disabled={loadingVendors} />
             {search && (
               <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2">
                 <X className="h-3.5 w-3.5 text-muted-foreground" />
@@ -242,7 +324,7 @@ const Vendors = () => {
             )}
           </div>
 
-          <Select value={tradeFilter} onValueChange={(v) => setTradeFilter(v as TradeFilter)}>
+          <Select value={tradeFilter} onValueChange={(v) => setTradeFilter(v as TradeFilter)} disabled={loadingVendors}>
             <SelectTrigger className="h-8 w-[110px] text-xs"><SelectValue placeholder="Trades" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All trades</SelectItem>
@@ -252,7 +334,7 @@ const Vendors = () => {
             </SelectContent>
           </Select>
 
-          <Select value={feeFilter} onValueChange={(v) => setFeeFilter(v as FeeFilter)}>
+          <Select value={feeFilter} onValueChange={(v) => setFeeFilter(v as FeeFilter)} disabled={loadingVendors}>
             <SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue placeholder="Net Fee" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All fees</SelectItem>
@@ -261,7 +343,7 @@ const Vendors = () => {
             </SelectContent>
           </Select>
 
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortField)}>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortField)} disabled={loadingVendors}>
             <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="Sort by" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="name">Name</SelectItem>
@@ -279,13 +361,18 @@ const Vendors = () => {
           )}
         </div>
 
+        {vendorsError && (
+          <div className="px-4 py-2 text-sm text-destructive border-b border-border bg-destructive/5">
+            {vendorsError}
+          </div>
+        )}
+
         <div className="overflow-x-auto">
-        <Table className="min-w-[1200px]">
+        <Table className="min-w-[1080px]">
           <TableHeader>
             <TableRow>
               <TableHead className="w-[40px]" />
               <TableHead>Name</TableHead>
-              <TableHead>Note</TableHead>
               <TableHead className="text-center">Trades</TableHead>
               <TableHead className="text-right">Volume (LCY)</TableHead>
               <TableHead className="text-right">Net Fee (LCY)</TableHead>
@@ -295,24 +382,28 @@ const Vendors = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {loadingVendors ? (
+              <TableRow>
+                <TableCell colSpan={COL_COUNT} className="text-center py-12 text-muted-foreground">Loading vendors...</TableCell>
+              </TableRow>
+            ) : filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={COL_COUNT} className="text-center py-12 text-muted-foreground">No vendors found.</TableCell>
               </TableRow>
             ) : (
               filtered.map((v) => {
                 const isExpanded = expanded.has(v.id);
-                const vendorPurchases = purchases.filter((p) => p.vendorId === v.id);
+                const vendorPurchases = purchasesByVendor[v.id] ?? [];
+                const loadingVendorPurchases = loadingPurchaseVendorIds.has(v.id);
                 return (
-                  <>
-                    <TableRow key={v.id}>
+                  <Fragment key={v.id}>
+                    <TableRow>
                       <TableCell className="pr-0">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleExpand(v.id)}>
                           {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </Button>
                       </TableCell>
                       <TableCell className="font-semibold">{v.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{v.note || "—"}</TableCell>
                       <TableCell className="text-center font-mono">{v.tradeCount}</TableCell>
                       <TableCell className="text-right font-mono text-sm">{formatNum(v.totalVolumeLcy)}</TableCell>
                       <TableCell className="text-right">
@@ -338,10 +429,10 @@ const Vendors = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditVendor(v)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditVendor(v)} disabled={loadingVendors}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteVendorId(v.id)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteVendorId(v.id)} disabled={loadingVendors}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -349,17 +440,19 @@ const Vendors = () => {
                     </TableRow>
 
                     {isExpanded && (
-                      <TableRow key={`${v.id}-purchases`} className="bg-muted/30 hover:bg-muted/30">
+                      <TableRow className="bg-muted/30 hover:bg-muted/30">
                         <TableCell colSpan={COL_COUNT} className="p-0">
                           <div className="px-6 py-4 pl-12">
                             <div className="flex items-center justify-between mb-3">
                               <h3 className="text-sm font-semibold text-foreground">Purchases</h3>
-                              <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => openAddPurchase(v.id)}>
+                              <Button size="sm"  className="gap-1.5 h-7 text-xs" onClick={() => openAddPurchase(v.id)} disabled={loadingVendorPurchases}>
                                 <Plus className="h-3 w-3" /> Add
                               </Button>
                             </div>
 
-                            {vendorPurchases.length === 0 ? (
+                            {loadingVendorPurchases ? (
+                              <p className="text-sm text-muted-foreground py-4 text-center">Loading purchases...</p>
+                            ) : vendorPurchases.length === 0 ? (
                               <p className="text-sm text-muted-foreground py-4 text-center">No purchases yet.</p>
                             ) : (
                               <div className="rounded-lg border border-border overflow-hidden overflow-x-auto">
@@ -389,15 +482,15 @@ const Vendors = () => {
                                           <Badge variant="outline" className={`font-mono text-xs ${getAssetColor(p.paidWithAsset)}`}>{p.paidWithAsset}</Badge>
                                         </TableCell>
                                         <TableCell className="text-right font-mono text-sm">{formatNum(p.paidWithQuantity)}</TableCell>
-                                        <TableCell className="text-right font-mono text-sm">{formatNum(p.boughtAssetCostLcy)}</TableCell>
-                                        <TableCell className="text-right font-mono text-xs text-muted-foreground">{formatNum(p.unitCostLcy, 5)}</TableCell>
+                                        <TableCell className="text-right font-mono text-sm">{formatNum(p.actualTotalCostLcy ?? p.boughtAssetCostLcy ?? 0)}</TableCell>
+                                        <TableCell className="text-right font-mono text-xs text-muted-foreground">{formatNum(p.unitCostLcy ?? 0, 5)}</TableCell>
                                         <TableCell className="text-right">
-                                          <span className={`font-mono text-sm font-medium ${p.vendorFeeLcy >= 0 ? "text-accent" : "text-destructive"}`}>
-                                            {formatNum(p.vendorFeeLcy)}
+                                          <span className={`font-mono text-sm font-medium ${(p.vendorFeeLcy ?? 0) >= 0 ? "text-accent" : "text-destructive"}`}>
+                                            {formatNum(p.vendorFeeLcy ?? 0)}
                                           </span>
                                         </TableCell>
                                         <TableCell>
-                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeletePurchaseId(p.id)}>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeletePurchase({ id: p.id, vendorId: v.id })} disabled={deletingPurchase}>
                                             <Trash2 className="h-3 w-3" />
                                           </Button>
                                         </TableCell>
@@ -411,7 +504,7 @@ const Vendors = () => {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 );
               })
             )}
@@ -431,14 +524,10 @@ const Vendors = () => {
               <Label htmlFor="vendor-name">Name</Label>
               <Input id="vendor-name" placeholder="Vendor name" value={vendorForm.name} onChange={(e) => setVendorForm((f) => ({ ...f, name: e.target.value }))} />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="vendor-note">Note</Label>
-              <Input id="vendor-note" placeholder="Optional note" value={vendorForm.note} onChange={(e) => setVendorForm((f) => ({ ...f, note: e.target.value }))} />
-            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setVendorModalOpen(false)}>Cancel</Button>
-            <Button onClick={saveVendor} disabled={!vendorForm.name.trim()}>{editingVendor ? "Save Changes" : "Add Vendor"}</Button>
+            <Button variant="outline" onClick={() => setVendorModalOpen(false)} disabled={savingVendor}>Cancel</Button>
+            <Button onClick={() => void saveVendor()} disabled={!vendorForm.name.trim() || savingVendor}>{editingVendor ? "Save Changes" : "Add Vendor"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -484,8 +573,8 @@ const Vendors = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPurchaseModalOpen(false)}>Cancel</Button>
-            <Button onClick={savePurchase} disabled={!purchaseForm.asset.trim()}>Add Purchase</Button>
+            <Button variant="outline" onClick={() => setPurchaseModalOpen(false)} disabled={savingPurchase}>Cancel</Button>
+            <Button onClick={() => void savePurchase()} disabled={!purchaseForm.asset.trim() || savingPurchase}>Add Purchase</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -498,22 +587,22 @@ const Vendors = () => {
             <AlertDialogDescription>This will also delete all associated purchases. This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteVendor} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+            <AlertDialogCancel disabled={deletingVendor}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirmDeleteVendor()} disabled={deletingVendor} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Delete Purchase Confirm */}
-      <AlertDialog open={deletePurchaseId !== null} onOpenChange={(open) => !open && setDeletePurchaseId(null)}>
+      <AlertDialog open={deletePurchase !== null} onOpenChange={(open) => !open && setDeletePurchase(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Purchase</AlertDialogTitle>
             <AlertDialogDescription>This action cannot be undone. Are you sure?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeletePurchase} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+            <AlertDialogCancel disabled={deletingPurchase}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirmDeletePurchase()} disabled={deletingPurchase} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

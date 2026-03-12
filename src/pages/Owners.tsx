@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import api from "@/lib/axios";
 
 // --- Asset colors ---
 const assetColors: Record<string, string> = {
@@ -60,32 +61,13 @@ interface Owner {
   balances: BalanceEntry[];
 }
 
-// --- Initial data ---
-const initialOwners: Owner[] = [
-  {
-    id: 1, name: "Erin Hoxha", note: "note",
-    createdAtUtc: "2026-03-06T02:28:46.0494545+00:00",
-    balances: [
-      { asset: "EUR", amount: 2000 },
-      { asset: "USDT-TRC20", amount: 5014.7 },
-    ],
-  },
-];
+interface OwnersResponse {
+  items: Owner[];
+}
 
-const initialContributions: Contribution[] = [
-  {
-    id: 1, ownerId: 1, contributedAtUtc: "2026-03-10T10:00:00Z",
-    asset: "EUR", amount: 2000, unitValueLcy: 1, totalValueLcy: 2000,
-    referenceNo: "REF-001", note: "Initial deposit",
-    createdAtUtc: "2026-03-10T10:00:00Z",
-  },
-  {
-    id: 2, ownerId: 1, contributedAtUtc: "2026-03-11T08:00:00Z",
-    asset: "USDT-TRC20", amount: 5014.7, unitValueLcy: 0.92, totalValueLcy: 4613.52,
-    referenceNo: "REF-002", note: "Crypto contribution",
-    createdAtUtc: "2026-03-11T08:00:00Z",
-  },
-];
+interface OwnerContributionsResponse {
+  items: Contribution[];
+}
 
 // --- Helpers ---
 const formatDate = (iso: string) =>
@@ -107,8 +89,16 @@ type BalanceFilter = "all" | "has-balance" | "no-balance";
 type ContribFilter = "all" | "has-contribs" | "no-contribs";
 
 const Owners = () => {
-  const [owners, setOwners] = useState<Owner[]>(initialOwners);
-  const [contributions, setContributions] = useState<Contribution[]>(initialContributions);
+  const [owners, setOwners] = useState<Owner[]>([]);
+  const [contributionsByOwner, setContributionsByOwner] = useState<Record<number, Contribution[]>>({});
+  const [loadingContribByOwner, setLoadingContribByOwner] = useState<Record<number, boolean>>({});
+  const [loadingOwners, setLoadingOwners] = useState(true);
+  const [ownersError, setOwnersError] = useState<string | null>(null);
+  const [contributionsError, setContributionsError] = useState<string | null>(null);
+  const [savingOwner, setSavingOwner] = useState(false);
+  const [deletingOwner, setDeletingOwner] = useState(false);
+  const [savingContrib, setSavingContrib] = useState(false);
+  const [deletingContrib, setDeletingContrib] = useState(false);
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<SortField>("name");
@@ -127,7 +117,56 @@ const Owners = () => {
   const [contribForm, setContribForm] = useState(emptyContribForm);
 
   // Delete contribution
-  const [deleteContribId, setDeleteContribId] = useState<number | null>(null);
+  const [deleteContribTarget, setDeleteContribTarget] = useState<{ id: number; ownerId: number } | null>(null);
+  const [deleteOwnerId, setDeleteOwnerId] = useState<number | null>(null);
+
+  const contributions = useMemo(
+    () => Object.values(contributionsByOwner).flat(),
+    [contributionsByOwner]
+  );
+
+  const getContributionsFromResponse = (
+    data: OwnerContributionsResponse | Contribution[]
+  ): Contribution[] => (Array.isArray(data) ? data : data.items ?? []);
+
+  const fetchContributionsForOwner = useCallback(async (ownerId: number) => {
+    try {
+      setLoadingContribByOwner((prev) => ({ ...prev, [ownerId]: true }));
+      const response = await api.get<OwnerContributionsResponse | Contribution[]>("/api/owner-contributions", {
+        params: { ownerId },
+      });
+      setContributionsByOwner((prev) => ({
+        ...prev,
+        [ownerId]: getContributionsFromResponse(response.data),
+      }));
+    } catch {
+      setContributionsError("Failed to load owner contributions.");
+      setContributionsByOwner((prev) => ({ ...prev, [ownerId]: [] }));
+    } finally {
+      setLoadingContribByOwner((prev) => ({ ...prev, [ownerId]: false }));
+    }
+  }, []);
+
+  const fetchOwners = useCallback(async () => {
+    try {
+      setLoadingOwners(true);
+      setOwnersError(null);
+      setContributionsError(null);
+      const response = await api.get<OwnersResponse>("/api/owners");
+      const nextOwners = response.data.items ?? [];
+      setOwners(nextOwners);
+    } catch {
+      setOwnersError("Failed to load owners.");
+      setOwners([]);
+      setContributionsByOwner({});
+    } finally {
+      setLoadingOwners(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchOwners();
+  }, [fetchOwners]);
 
   // Collect all unique assets across owners
   const allAssets = useMemo(() => {
@@ -172,50 +211,105 @@ const Owners = () => {
   const toggleExpand = (id: number) =>
     setExpanded((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+        if (!contributionsByOwner[id] && !loadingContribByOwner[id]) {
+          void fetchContributionsForOwner(id);
+        }
+      }
       return next;
     });
 
   // Owner CRUD
   const openAddOwner = () => { setEditingOwner(null); setOwnerForm(emptyOwnerForm); setOwnerModalOpen(true); };
   const openEditOwner = (o: Owner) => { setEditingOwner(o); setOwnerForm({ name: o.name, note: o.note }); setOwnerModalOpen(true); };
-  const saveOwner = () => {
+  const saveOwner = async () => {
     if (!ownerForm.name.trim()) return;
-    if (editingOwner) {
-      setOwners((prev) => prev.map((o) => o.id === editingOwner.id ? { ...o, name: ownerForm.name, note: ownerForm.note } : o));
-    } else {
-      setOwners((prev) => [...prev, { id: Date.now(), name: ownerForm.name, note: ownerForm.note, createdAtUtc: new Date().toISOString(), balances: [] }]);
+
+    const payload = {
+      name: ownerForm.name.trim(),
+      note: ownerForm.note.trim(),
+    };
+
+    try {
+      setSavingOwner(true);
+      if (editingOwner) {
+        await api.put(`/api/owners/${editingOwner.id}`, payload);
+      } else {
+        await api.post("/api/owners", payload);
+      }
+      await fetchOwners();
+      setOwnerModalOpen(false);
+    } catch {
+      setOwnersError(editingOwner ? "Failed to update owner." : "Failed to create owner.");
+    } finally {
+      setSavingOwner(false);
     }
-    setOwnerModalOpen(false);
+  };
+
+  const confirmDeleteOwner = async () => {
+    if (deleteOwnerId === null) return;
+
+    try {
+      setDeletingOwner(true);
+      await api.delete(`/api/owners/${deleteOwnerId}`);
+      await fetchOwners();
+      setDeleteOwnerId(null);
+    } catch {
+      setOwnersError("Failed to delete owner.");
+    } finally {
+      setDeletingOwner(false);
+    }
   };
 
   // Contribution CRUD
   const openAddContrib = (ownerId: number) => {
+    setContributionsError(null);
     setContribOwnerId(ownerId);
     setContribForm(emptyContribForm);
     setContribModalOpen(true);
   };
-  const saveContrib = () => {
+  const saveContrib = async () => {
     if (!contribForm.asset.trim() || !contribOwnerId) return;
-    const newContrib: Contribution = {
-      id: Date.now(),
+
+    const payload = {
       ownerId: contribOwnerId,
-      asset: contribForm.asset,
+      asset: contribForm.asset.trim(),
       amount: parseFloat(contribForm.amount) || 0,
       unitValueLcy: parseFloat(contribForm.unitValueLcy) || 0,
       totalValueLcy: parseFloat(contribForm.totalValueLcy) || 0,
       contributedAtUtc: new Date(contribForm.contributedAtUtc).toISOString(),
-      referenceNo: contribForm.referenceNo,
-      note: contribForm.note,
-      createdAtUtc: new Date().toISOString(),
+      referenceNo: contribForm.referenceNo.trim(),
+      note: contribForm.note.trim(),
     };
-    setContributions((prev) => [...prev, newContrib]);
-    setContribModalOpen(false);
+
+    try {
+      setSavingContrib(true);
+      setContributionsError(null);
+      await api.post("/api/owner-contributions", payload);
+      await Promise.all([fetchOwners(), fetchContributionsForOwner(contribOwnerId)]);
+      setContribModalOpen(false);
+    } catch {
+      setContributionsError("Failed to create contribution.");
+    } finally {
+      setSavingContrib(false);
+    }
   };
-  const confirmDeleteContrib = () => {
-    if (deleteContribId !== null) {
-      setContributions((prev) => prev.filter((c) => c.id !== deleteContribId));
-      setDeleteContribId(null);
+  const confirmDeleteContrib = async () => {
+    if (!deleteContribTarget) return;
+
+    try {
+      setDeletingContrib(true);
+      setContributionsError(null);
+      await api.delete(`/api/owner-contributions/${deleteContribTarget.id}`);
+      await Promise.all([fetchOwners(), fetchContributionsForOwner(deleteContribTarget.ownerId)]);
+      setDeleteContribTarget(null);
+    } catch {
+      setContributionsError("Failed to delete contribution.");
+    } finally {
+      setDeletingContrib(false);
     }
   };
 
@@ -224,8 +318,8 @@ const Owners = () => {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Owners</h1>
-        <Button className="gap-2" onClick={openAddOwner}>
+          <h1 className="text-2xl font-bold text-foreground">Owners</h1>
+        <Button className="gap-2" onClick={openAddOwner} disabled={loadingOwners}>
           <Plus className="h-4 w-4" /> Add Owner
         </Button>
       </div>
@@ -234,7 +328,7 @@ const Owners = () => {
         <div className="p-3 border-b border-border flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-48">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" />
+            <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" disabled={loadingOwners} />
             {search && (
               <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2">
                 <X className="h-3.5 w-3.5 text-muted-foreground" />
@@ -242,7 +336,7 @@ const Owners = () => {
             )}
           </div>
 
-          <Select value={balanceFilter} onValueChange={(v) => setBalanceFilter(v as BalanceFilter)}>
+          <Select value={balanceFilter} onValueChange={(v) => setBalanceFilter(v as BalanceFilter)} disabled={loadingOwners}>
             <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="Balances" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All balances</SelectItem>
@@ -251,7 +345,7 @@ const Owners = () => {
             </SelectContent>
           </Select>
 
-          <Select value={contribFilter} onValueChange={(v) => setContribFilter(v as ContribFilter)}>
+          <Select value={contribFilter} onValueChange={(v) => setContribFilter(v as ContribFilter)} disabled={loadingOwners}>
             <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue placeholder="Contributions" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All contributions</SelectItem>
@@ -261,7 +355,7 @@ const Owners = () => {
           </Select>
 
           {allAssets.length > 0 && (
-            <Select value={assetFilter} onValueChange={setAssetFilter}>
+            <Select value={assetFilter} onValueChange={setAssetFilter} disabled={loadingOwners}>
               <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="Asset" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All assets</SelectItem>
@@ -272,7 +366,7 @@ const Owners = () => {
             </Select>
           )}
 
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortField)}>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortField)} disabled={loadingOwners}>
             <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="Sort by" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="name">Name</SelectItem>
@@ -289,6 +383,17 @@ const Owners = () => {
           )}
         </div>
 
+        {ownersError && (
+          <div className="px-4 py-2 text-sm text-destructive border-b border-border bg-destructive/5">
+            {ownersError}
+          </div>
+        )}
+        {contributionsError && (
+          <div className="px-4 py-2 text-sm text-destructive border-b border-border bg-destructive/5">
+            {contributionsError}
+          </div>
+        )}
+
         <div className="overflow-x-auto">
         <Table className="min-w-[980px]">
           <TableHeader>
@@ -302,17 +407,22 @@ const Owners = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {loadingOwners ? (
+              <TableRow>
+                <TableCell colSpan={COL_COUNT} className="text-center py-12 text-muted-foreground">Loading owners...</TableCell>
+              </TableRow>
+            ) : filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={COL_COUNT} className="text-center py-12 text-muted-foreground">No owners found.</TableCell>
               </TableRow>
             ) : (
               filtered.map((o) => {
                 const isExpanded = expanded.has(o.id);
-                const ownerContribs = contributions.filter((c) => c.ownerId === o.id);
+                const ownerContribs = contributionsByOwner[o.id] ?? [];
+                const isLoadingContribs = loadingContribByOwner[o.id];
                 return (
-                  <>
-                    <TableRow key={o.id}>
+                  <Fragment key={o.id}>
+                    <TableRow>
                       <TableCell className="pr-0">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleExpand(o.id)}>
                           {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -337,23 +447,25 @@ const Owners = () => {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditOwner(o)}><Pencil className="h-3.5 w-3.5" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteOwnerId(o.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
 
                     {isExpanded && (
-                      <TableRow key={`${o.id}-contribs`} className="bg-muted/30 hover:bg-muted/30">
+                      <TableRow className="bg-muted/30 hover:bg-muted/30">
                         <TableCell colSpan={COL_COUNT} className="p-0">
                           <div className="px-6 py-4 pl-12">
                             <div className="flex items-center justify-between mb-3">
                               <h3 className="text-sm font-semibold text-foreground">Contributions</h3>
-                              <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => openAddContrib(o.id)}>
+                              <Button size="sm"   className="gap-1.5 h-7 text-xs" onClick={() => openAddContrib(o.id)}>
                                 <Plus className="h-3 w-3" /> Add
                               </Button>
                             </div>
 
-                            {ownerContribs.length === 0 ? (
+                            {isLoadingContribs ? (
+                              <p className="text-sm text-muted-foreground py-4 text-center">Loading contributions...</p>
+                            ) : ownerContribs.length === 0 ? (
                               <p className="text-sm text-muted-foreground py-4 text-center">No contributions yet.</p>
                             ) : (
                               <div className="rounded-lg border border-border overflow-hidden overflow-x-auto">
@@ -383,7 +495,12 @@ const Owners = () => {
                                         <TableCell className="text-xs text-muted-foreground">{c.referenceNo || "—"}</TableCell>
                                         <TableCell className="text-xs text-muted-foreground">{c.note || "—"}</TableCell>
                                         <TableCell>
-                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteContribId(c.id)}>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 text-destructive hover:text-destructive"
+                                            onClick={() => setDeleteContribTarget({ id: c.id, ownerId: o.id })}
+                                          >
                                             <Trash2 className="h-3 w-3" />
                                           </Button>
                                         </TableCell>
@@ -397,7 +514,7 @@ const Owners = () => {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 );
               })
             )}
@@ -423,8 +540,8 @@ const Owners = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOwnerModalOpen(false)}>Cancel</Button>
-            <Button onClick={saveOwner} disabled={!ownerForm.name.trim()}>{editingOwner ? "Save Changes" : "Add Owner"}</Button>
+            <Button variant="outline" onClick={() => setOwnerModalOpen(false)} disabled={savingOwner}>Cancel</Button>
+            <Button onClick={() => void saveOwner()} disabled={!ownerForm.name.trim() || savingOwner}>{editingOwner ? "Save Changes" : "Add Owner"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -466,22 +583,36 @@ const Owners = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setContribModalOpen(false)}>Cancel</Button>
-            <Button onClick={saveContrib} disabled={!contribForm.asset.trim()}>Add Contribution</Button>
+            <Button variant="outline" onClick={() => setContribModalOpen(false)} disabled={savingContrib}>Cancel</Button>
+            <Button onClick={() => void saveContrib()} disabled={!contribForm.asset.trim() || savingContrib}>Add Contribution</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete Contribution Confirm */}
-      <AlertDialog open={deleteContribId !== null} onOpenChange={(open) => !open && setDeleteContribId(null)}>
+      <AlertDialog open={deleteContribTarget !== null} onOpenChange={(open) => !open && setDeleteContribTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Contribution</AlertDialogTitle>
             <AlertDialogDescription>This action cannot be undone. Are you sure?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteContrib} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+            <AlertDialogCancel disabled={deletingContrib}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirmDeleteContrib()} disabled={deletingContrib} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Owner Confirm */}
+      <AlertDialog open={deleteOwnerId !== null} onOpenChange={(open) => !open && setDeleteOwnerId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Owner</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone. Are you sure?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingOwner}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirmDeleteOwner()} disabled={deletingOwner} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

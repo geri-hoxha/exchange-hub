@@ -1,12 +1,16 @@
-import { useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -22,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import api from "@/lib/axios";
 
 interface BalanceEntry {
   asset: string;
@@ -37,39 +42,14 @@ interface Customer {
   totalReceivedLcy: number;
   totalPaidLcy: number;
   netFeeLcy: number;
-  lastTradeAtUtc: string;
+  lastTradeAtUtc: string | null;
   theyOweUs: BalanceEntry[];
   weOweThem: BalanceEntry[];
 }
 
-const initialData: Customer[] = [
-  {
-    id: 1,
-    name: "Erin Hoxha",
-    note: "VIP client",
-    createdAtUtc: "2026-03-06T18:43:22.300Z",
-    tradeCount: 6,
-    totalReceivedLcy: 10710.77640189,
-    totalPaidLcy: 9891.04985733,
-    netFeeLcy: 819.72654456,
-    lastTradeAtUtc: "2026-03-06T18:42:30.525Z",
-    theyOweUs: [{ asset: "USDT-TRC20", amount: 12403.986684 }],
-    weOweThem: [{ asset: "EUR", amount: 9895 }],
-  },
-  {
-    id: 2,
-    name: "Marco Rossi",
-    note: "",
-    createdAtUtc: "2026-02-15T10:20:00.000Z",
-    tradeCount: 3,
-    totalReceivedLcy: 5200.50,
-    totalPaidLcy: 4980.25,
-    netFeeLcy: 220.25,
-    lastTradeAtUtc: "2026-03-01T14:30:00.000Z",
-    theyOweUs: [],
-    weOweThem: [{ asset: "USD", amount: 350 }],
-  },
-];
+interface CustomersResponse {
+  items: Customer[];
+}
 
 const formatDate = (iso: string) => {
   const d = new Date(iso);
@@ -104,13 +84,41 @@ type BalanceFilter = "all" | "they-owe" | "we-owe" | "settled";
 type TradeFilter = "all" | "1+" | "5+" | "10+";
 type SortField = "name" | "tradeCount" | "netFeeLcy" | "lastTradeAtUtc";
 
+const emptyCustomerForm = { name: "", note: "" };
+
 const Customers = () => {
-  const [data] = useState<Customer[]>(initialData);
+  const [data, setData] = useState<Customer[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(true);
+  const [customersError, setCustomersError] = useState<string | null>(null);
+  const [savingCustomer, setSavingCustomer] = useState(false);
+  const [deletingCustomer, setDeletingCustomer] = useState(false);
+  const [customerModalOpen, setCustomerModalOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [customerForm, setCustomerForm] = useState(emptyCustomerForm);
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [balanceFilter, setBalanceFilter] = useState<BalanceFilter>("all");
   const [tradeFilter, setTradeFilter] = useState<TradeFilter>("all");
   const [sortBy, setSortBy] = useState<SortField>("name");
+
+  const fetchCustomers = useCallback(async () => {
+    try {
+      setLoadingCustomers(true);
+      setCustomersError(null);
+      const response = await api.get<CustomersResponse | Customer[]>("/api/customers");
+      const nextCustomers = Array.isArray(response.data) ? response.data : (response.data.items ?? []);
+      setData(nextCustomers);
+    } catch {
+      setCustomersError("Failed to load customers.");
+      setData([]);
+    } finally {
+      setLoadingCustomers(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchCustomers();
+  }, [fetchCustomers]);
 
   const activeFilterCount = [balanceFilter !== "all", tradeFilter !== "all"].filter(Boolean).length;
 
@@ -139,18 +147,71 @@ const Customers = () => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
       if (sortBy === "tradeCount") return b.tradeCount - a.tradeCount;
       if (sortBy === "netFeeLcy") return b.netFeeLcy - a.netFeeLcy;
-      if (sortBy === "lastTradeAtUtc") return new Date(b.lastTradeAtUtc).getTime() - new Date(a.lastTradeAtUtc).getTime();
+      if (sortBy === "lastTradeAtUtc") return new Date(b.lastTradeAtUtc ?? 0).getTime() - new Date(a.lastTradeAtUtc ?? 0).getTime();
       return 0;
     });
 
     return result;
   }, [data, search, balanceFilter, tradeFilter, sortBy]);
 
+  const openAddCustomer = () => {
+    setEditingCustomer(null);
+    setCustomerForm(emptyCustomerForm);
+    setCustomerModalOpen(true);
+  };
+
+  const openEditCustomer = (customer: Customer) => {
+    setEditingCustomer(customer);
+    setCustomerForm({ name: customer.name, note: customer.note });
+    setCustomerModalOpen(true);
+  };
+
+  const saveCustomer = async () => {
+    if (!customerForm.name.trim()) return;
+
+    const payload = {
+      name: customerForm.name.trim(),
+      note: customerForm.note.trim(),
+    };
+
+    try {
+      setSavingCustomer(true);
+      setCustomersError(null);
+      if (editingCustomer) {
+        await api.put(`/api/customers/${editingCustomer.id}`, payload);
+      } else {
+        await api.post("/api/customers", payload);
+      }
+      await fetchCustomers();
+      setCustomerModalOpen(false);
+    } catch {
+      setCustomersError(editingCustomer ? "Failed to update customer." : "Failed to create customer.");
+    } finally {
+      setSavingCustomer(false);
+    }
+  };
+
+  const confirmDeleteCustomer = async () => {
+    if (deleteId === null) return;
+
+    try {
+      setDeletingCustomer(true);
+      setCustomersError(null);
+      await api.delete(`/api/customers/${deleteId}`);
+      await fetchCustomers();
+      setDeleteId(null);
+    } catch {
+      setCustomersError("Failed to delete customer.");
+    } finally {
+      setDeletingCustomer(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Customers</h1>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={openAddCustomer} disabled={loadingCustomers}>
           <Plus className="h-4 w-4" />
           Add Customer
         </Button>
@@ -165,6 +226,7 @@ const Customers = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-8 h-8 text-sm"
+              disabled={loadingCustomers}
             />
             {search && (
               <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2">
@@ -173,7 +235,7 @@ const Customers = () => {
             )}
           </div>
 
-          <Select value={balanceFilter} onValueChange={(v) => setBalanceFilter(v as BalanceFilter)}>
+          <Select value={balanceFilter} onValueChange={(v) => setBalanceFilter(v as BalanceFilter)} disabled={loadingCustomers}>
             <SelectTrigger className="h-8 w-[130px] text-xs">
               <SelectValue placeholder="Balance" />
             </SelectTrigger>
@@ -185,7 +247,7 @@ const Customers = () => {
             </SelectContent>
           </Select>
 
-          <Select value={tradeFilter} onValueChange={(v) => setTradeFilter(v as TradeFilter)}>
+          <Select value={tradeFilter} onValueChange={(v) => setTradeFilter(v as TradeFilter)} disabled={loadingCustomers}>
             <SelectTrigger className="h-8 w-[110px] text-xs">
               <SelectValue placeholder="Trades" />
             </SelectTrigger>
@@ -197,7 +259,7 @@ const Customers = () => {
             </SelectContent>
           </Select>
 
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortField)}>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortField)} disabled={loadingCustomers}>
             <SelectTrigger className="h-8 w-[120px] text-xs">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
@@ -217,6 +279,12 @@ const Customers = () => {
           )}
         </div>
 
+        {customersError && (
+          <div className="px-4 py-2 text-sm text-destructive border-b border-border bg-destructive/5">
+            {customersError}
+          </div>
+        )}
+
         <div className="overflow-x-auto">
         <Table className="min-w-[1300px]">
           <TableHeader>
@@ -234,7 +302,13 @@ const Customers = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {loadingCustomers ? (
+              <TableRow>
+                <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
+                  Loading customers...
+                </TableCell>
+              </TableRow>
+            ) : filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                   No customers found.
@@ -264,14 +338,14 @@ const Customers = () => {
                     <BalanceList items={c.weOweThem} variant="owed" />
                   </TableCell>
                   <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">
-                    {formatDate(c.lastTradeAtUtc)}
+                    {c.lastTradeAtUtc ? formatDate(c.lastTradeAtUtc) : "—"}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditCustomer(c)} disabled={loadingCustomers}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteId(c.id)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteId(c.id)} disabled={loadingCustomers}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -284,6 +358,42 @@ const Customers = () => {
         </div>
       </div>
 
+      <Dialog open={customerModalOpen} onOpenChange={setCustomerModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingCustomer ? "Edit Customer" : "Add Customer"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="customer-name">Name</Label>
+              <Input
+                id="customer-name"
+                placeholder="Customer name"
+                value={customerForm.name}
+                onChange={(e) => setCustomerForm((prev) => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="customer-note">Note</Label>
+              <Input
+                id="customer-note"
+                placeholder="Optional note"
+                value={customerForm.note}
+                onChange={(e) => setCustomerForm((prev) => ({ ...prev, note: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCustomerModalOpen(false)} disabled={savingCustomer}>
+              Cancel
+            </Button>
+            <Button onClick={() => void saveCustomer()} disabled={!customerForm.name.trim() || savingCustomer}>
+              {editingCustomer ? "Save Changes" : "Add Customer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -291,8 +401,8 @@ const Customers = () => {
             <AlertDialogDescription>This action cannot be undone. Are you sure?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => setDeleteId(null)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+            <AlertDialogCancel disabled={deletingCustomer}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirmDeleteCustomer()} disabled={deletingCustomer} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

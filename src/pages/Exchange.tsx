@@ -17,22 +17,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-const currencies = [
-  { code: "USDT-TRC20", name: "Tether TRC20", type: "crypto", symbol: "₮", icon: "usdt" },
-  { code: "USDT-ERC20", name: "Tether ERC20", type: "crypto", symbol: "₮", icon: "usdt" },
-  { code: "BTC", name: "Bitcoin", type: "crypto", symbol: "₿", icon: "btc" },
-  { code: "ETH", name: "Ethereum", type: "crypto", symbol: "Ξ", icon: "eth" },
-  { code: "BNB", name: "BNB", type: "crypto", symbol: "⬡", icon: "bnb" },
-  { code: "SOL", name: "Solana", type: "crypto", symbol: "◎", icon: "sol" },
-  { code: "XRP", name: "Ripple", type: "crypto", symbol: "✕", icon: "xrp" },
-  { code: "ADA", name: "Cardano", type: "crypto", symbol: "₳", icon: "ada" },
-  { code: "USD", name: "US Dollar", type: "fiat", symbol: "$", icon: "usd" },
-  { code: "EUR", name: "Euro", type: "fiat", symbol: "€", icon: "eur" },
-  { code: "GBP", name: "British Pound", type: "fiat", symbol: "£", icon: "gbp" },
-  { code: "ARS", name: "Argentine Peso", type: "fiat", symbol: "$", icon: "ars" },
-  { code: "BRL", name: "Brazilian Real", type: "fiat", symbol: "R$", icon: "brl" },
-];
+import { getAllAssets } from "@/services/assetsService";
+ 
 
 const rates: Record<string, number> = {
   "USDT-TRC20": 1, "USDT-ERC20": 1,
@@ -89,6 +75,7 @@ const Exchange = () => {
   const [amount, setAmount] = useState("");
   const [buyCurrency, setBuyCurrency] = useState("");
   const [payCurrency, setPayCurrency] = useState("");
+  const previousModeRef = useRef<"wants" | "has">("wants");
 
   // Step 2
   const [step, setStep] = useState<1 | 2>(1);
@@ -121,6 +108,19 @@ const Exchange = () => {
     }, 600);
   };
 
+  // currencies
+  const [currencies, setCurrencies]= useState([])
+
+  useEffect(() => {
+    getCurrencies()
+  }, []);
+
+  const getCurrencies = async () => {
+    const response = await getAllAssets();
+    setCurrencies(response)
+  }
+
+
   const buyCurrencyData = currencies.find((c) => c.code === buyCurrency);
   const payCurrencyData = currencies.find((c) => c.code === payCurrency);
   const isBuyingFiat = buyCurrencyData?.type === "fiat";
@@ -139,12 +139,40 @@ const Exchange = () => {
   const adjustment = effectiveTotal - computedTotal;
   const hasAdjustment = totalOverride !== "" && Math.abs(adjustment) > 0.001;
 
-  const canProceed = !!amount && amountNum > 0 && !!buyCurrency && !!payCurrency && buyCurrency !== payCurrency;
+  const selectedPairHasOppositeTypes =
+    !!buyCurrencyData &&
+    !!payCurrencyData &&
+    buyCurrencyData.type !== payCurrencyData.type;
+
+  const canProceed =
+    !!amount &&
+    amountNum > 0 &&
+    !!buyCurrency &&
+    !!payCurrency &&
+    buyCurrency !== payCurrency &&
+    selectedPairHasOppositeTypes;
 
   // Reset total override when fee changes
   useEffect(() => {
     setTotalOverride("");
   }, [feePercent]);
+
+  // When toggling between "wants" and "has", flip selected currencies.
+  useEffect(() => {
+    if (previousModeRef.current !== mode) {
+      setBuyCurrency(payCurrency);
+      setPayCurrency(buyCurrency);
+      previousModeRef.current = mode;
+    }
+  }, [mode, buyCurrency, payCurrency]);
+
+  // Keep second selection valid: it must be the opposite type of the first one.
+  useEffect(() => {
+    if (!buyCurrencyData || !payCurrencyData) return;
+    if (buyCurrencyData.type === payCurrencyData.type) {
+      setPayCurrency("");
+    }
+  }, [buyCurrency, payCurrency, buyCurrencyData, payCurrencyData]);
 
   const handleNext = () => {
     if (!canProceed) return;
@@ -240,10 +268,21 @@ const Exchange = () => {
   const formatNum = (n: number, decimals = 2) =>
     n < 0.01 && n > 0 ? n.toFixed(8) : n.toLocaleString(undefined, { maximumFractionDigits: decimals });
 
+  const payCurrencyTypeFilter =
+    buyCurrencyData?.type === "crypto"
+      ? "fiat"
+      : buyCurrencyData?.type === "fiat"
+        ? "crypto"
+        : null;
+
+  const payCurrencyOptions = payCurrencyTypeFilter
+    ? currencies.filter((c) => c.type === payCurrencyTypeFilter)
+    : currencies;
+
   return (
     <div>
       {/* Hero */}
-      <div className="dark:bg-nav dark:text-nav-foreground bg-transparent text-foreground -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-6 pb-8 mb-2 dark:-mt-8 dark:pt-12 dark:pb-36 dark:mb-[-7rem]">
+      <div className="dark:text-nav-foreground bg-transparent text-foreground -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-6 pb-8 mb-2 dark:-mt-8 dark:pt-12 dark:pb-36 dark:mb-[-7rem]">
         <div className="max-w-2xl mx-auto text-center">
           <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-primary/20 mb-4">
             <ArrowLeftRight className="h-6 w-6 text-primary" />
@@ -307,7 +346,7 @@ const Exchange = () => {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  Customer Has test
+                  Customer Has
                 </button>
               </div>
 
@@ -361,14 +400,10 @@ const Exchange = () => {
                     <SelectValue placeholder="Select payment currency" />
                   </SelectTrigger>
                   <SelectContent>
-                    <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest">Crypto</div>
-                    {currencies.filter(c => c.type === "crypto").map((c) => (
-                      <SelectItem key={c.code} value={c.code}>
-                        <span className="font-mono mr-1">{c.symbol}</span> {c.code}
-                      </SelectItem>
-                    ))}
-                    <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Fiat</div>
-                    {currencies.filter(c => c.type === "fiat").map((c) => (
+                    <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                      {payCurrencyTypeFilter === "crypto" ? "Crypto" : payCurrencyTypeFilter === "fiat" ? "Fiat" : "All"}
+                    </div>
+                    {payCurrencyOptions.map((c) => (
                       <SelectItem key={c.code} value={c.code}>
                         <span className="font-mono mr-1">{c.symbol}</span> {c.code}
                       </SelectItem>
