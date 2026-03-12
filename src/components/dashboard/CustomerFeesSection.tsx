@@ -2,6 +2,7 @@ import {
   ArrowLeftRight,
   HandCoins,
   Wallet,
+  Crown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,13 +14,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
 
 interface AssetPairFee {
   receiveAsset: string;
