@@ -244,7 +244,9 @@ const Exchange = () => {
     setGasFee("");
     setQuote(null);
     setTotalOverride("");
+    setFeeOverride("");
     setEditingTotal(false);
+    setEditingFee(false);
     setCustomerId(null);
     setCustomerPickerOpen(false);
   };
