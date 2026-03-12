@@ -86,6 +86,10 @@ const Exchange = () => {
   const [editingTotal, setEditingTotal] = useState(false);
   const [totalOverride, setTotalOverride] = useState<string>("");
 
+  // Editable platform fee
+  const [editingFee, setEditingFee] = useState(false);
+  const [feeOverride, setFeeOverride] = useState<string>("");
+
   // Receipt preview
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
@@ -149,8 +153,9 @@ const Exchange = () => {
   const exchangeRate = quote?.agreedRate ?? 0;
   const feePercent = quote?.platformFeeRate ?? 0;
   const feeAmount = quote?.platformFeeAmount ?? 0;
-  const subtotal = Math.max(quotedCustomerPaysAmount - feeAmount, 0);
-  const computedTotal = quotedCustomerPaysAmount;
+  const effectiveFeeAmount = feeOverride !== "" ? (parseFloat(feeOverride) || 0) : feeAmount;
+  const subtotal = Math.max(quotedCustomerPaysAmount - effectiveFeeAmount, 0);
+  const computedTotal = subtotal + effectiveFeeAmount;
 
   const primaryAsset = mode === "wants" ? quotedCustomerReceivesAsset : quotedCustomerPaysAsset;
   const primaryAmount = mode === "wants" ? quotedCustomerReceivesAmount : quotedCustomerPaysAmount;
@@ -179,6 +184,7 @@ const Exchange = () => {
   // Reset manual override when quote changes.
   useEffect(() => {
     setTotalOverride("");
+    setFeeOverride("");
   }, [quote?.id]);
 
   // When toggling between "wants" and "has", flip selected currencies.
@@ -239,7 +245,9 @@ const Exchange = () => {
     setGasFee("");
     setQuote(null);
     setTotalOverride("");
+    setFeeOverride("");
     setEditingTotal(false);
+    setEditingFee(false);
     setCustomerId(null);
     setCustomerPickerOpen(false);
   };
@@ -495,12 +503,12 @@ const Exchange = () => {
                 <h2 className="text-lg font-bold">Review Exchange</h2>
               </div>
 
-              {/* Breakdown table */}
-              <div className="rounded-xl border border-border overflow-hidden mb-6">
+               {/* Breakdown table */}
+               <div className="rounded-xl border border-border overflow-hidden mb-4">
                 {/* Row: Customer Wants To Buy */}
-                <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
-                  <span className="text-sm text-muted-foreground">{mode === "wants" ? "Customer Wants To Buy" : "Customer Has"}</span>
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+                  <span className="text-xs font-medium text-muted-foreground">{mode === "wants" ? "Customer Wants To Buy" : "Customer Has"}</span>
+                  <div className="flex items-center gap-1.5">
                     {primaryAsset && <CurrencyIcon code={primaryAsset} />}
                     <span className="font-mono font-semibold text-sm">
                       {formatNum(primaryAmount)} {primaryAsset}
@@ -509,17 +517,17 @@ const Exchange = () => {
                 </div>
 
                 {/* Row: Exchange Rate */}
-                <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
-                  <span className="text-sm text-muted-foreground">Exchange Rate</span>
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                  <span className="text-xs font-medium text-muted-foreground">Exchange Rate</span>
                   <span className="font-mono font-semibold text-sm">
                     {formatNum(exchangeRate)}
                   </span>
                 </div>
 
                 {/* Row: Subtotal */}
-                <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
-                  <span className="text-sm text-muted-foreground">Subtotal</span>
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                  <span className="text-xs font-medium text-muted-foreground">Subtotal</span>
+                  <div className="flex items-center gap-1.5">
                     {quotedCustomerPaysAsset && <CurrencyIcon code={quotedCustomerPaysAsset} />}
                     <span className="font-mono font-semibold text-sm">
                       {formatNum(subtotal)} {quotedCustomerPaysAsset}
@@ -527,27 +535,43 @@ const Exchange = () => {
                   </div>
                 </div>
 
-                {/* Row: Platform Fee */}
-                <div className="flex items-center justify-between px-4 py-3.5 border-b border-border last:border-b-0">
-                  <span className="text-sm text-muted-foreground">Platform Fee</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-primary font-semibold text-sm">{formatNum(feePercent)}%</span>
-                    <span className="text-muted-foreground">→</span>
-                    <span className="font-mono font-semibold text-sm">
-                      {formatNum(feeAmount)} {quotedCustomerPaysAsset}
-                    </span>
-                  </div>
+                {/* Row: Platform Fee — editable on click */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border last:border-b-0">
+                  <span className="text-sm text-muted-foreground">Platform Fee <span className="text-primary text-xs">({formatNum(feePercent)}%)</span></span>
+                  {editingFee ? (
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="number"
+                        value={feeOverride}
+                        onChange={(e) => setFeeOverride(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && setEditingFee(false)}
+                        className="w-28 h-8 text-right font-mono text-sm bg-background"
+                        autoFocus
+                      />
+                      <span className="text-xs text-muted-foreground">{quotedCustomerPaysAsset}</span>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingFee(false)} className="h-7 w-7 p-0">
+                        <Check className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setEditingFee(true); setFeeOverride(feeOverride || String(effectiveFeeAmount)); }} className="group flex items-center gap-1.5 cursor-pointer">
+                      <span className="font-mono font-semibold text-sm">
+                        {formatNum(effectiveFeeAmount)} {quotedCustomerPaysAsset}
+                      </span>
+                      <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Row: Gas Fee (only when buying fiat) */}
                 {isBuyingFiat && (
-                  <div className="flex items-center justify-between px-4 py-3.5 border-b border-border last:border-b-0">
-                    <span className="text-sm text-muted-foreground">Gas Fee (absorbed)</span>
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-border last:border-b-0">
+                    <span className="text-xs font-medium text-muted-foreground">Gas Fee (absorbed)</span>
                     <Input
                       type="number"
                       value={gasFee}
                       onChange={(e) => setGasFee(e.target.value)}
-                      className="w-32 h-8 text-right font-mono text-sm bg-background"
+                      className="w-28 h-8 text-right font-mono text-sm bg-background"
                       placeholder="0.00"
                     />
                   </div>
@@ -555,8 +579,8 @@ const Exchange = () => {
 
                 {/* Row: Adjustment (only if total overridden) */}
                 {hasAdjustment && (
-                  <div className="flex items-center justify-between px-4 py-3.5">
-                    <span className={`text-sm font-medium ${adjustment > 0 ? "text-accent" : "text-destructive"}`}>
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className={`text-xs font-medium ${adjustment > 0 ? "text-accent" : "text-destructive"}`}>
                       Adjustment
                     </span>
                     <span className={`font-mono font-semibold text-sm ${adjustment > 0 ? "text-accent" : "text-destructive"}`}>
@@ -566,37 +590,37 @@ const Exchange = () => {
                 )}
               </div>
 
-              {/* Total Customer Pays — prominent box, editable */}
-              <div className="rounded-xl border-2 border-primary/30 bg-primary/5 px-5 py-6 mb-6">
+              {/* Total Customer Pays — compact box, editable */}
+              <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-4 mb-4">
                 {editingTotal ? (
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="font-bold text-base whitespace-nowrap">Total Customer Pays</span>
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold whitespace-nowrap">Total Customer Pays</span>
+                    <div className="flex items-center gap-1.5">
                       <Input
                         type="number"
                         value={totalOverride}
                         onChange={(e) => setTotalOverride(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleTotalConfirm()}
-                        className="w-52 h-11 text-right font-mono text-xl font-bold bg-background"
+                        className="w-40 h-9 text-right font-mono text-base font-bold bg-background"
                         autoFocus
                       />
-                      <span className="text-sm font-bold text-muted-foreground">{quotedCustomerPaysAsset}</span>
-                      <Button size="sm" variant="ghost" onClick={handleTotalConfirm} className="h-9 w-9 p-0">
-                        <Check className="h-4 w-4" />
+                      <span className="text-xs font-semibold text-muted-foreground">{quotedCustomerPaysAsset}</span>
+                      <Button size="sm" variant="ghost" onClick={handleTotalConfirm} className="h-8 w-8 p-0">
+                        <Check className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
                 ) : (
                   <button onClick={handleTotalEdit} className="w-full group cursor-pointer text-left">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-base">Total Customer Pays</span>
-                      <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                    <div className="text-center mt-2">
-                      <p className="font-mono font-bold text-3xl tracking-tight">
-                        {formatNum(effectiveTotal)}
-                      </p>
-                      <p className="text-sm font-bold text-muted-foreground mt-1">{quotedCustomerPaysAsset}</p>
+                      <span className="text-sm font-semibold">Total Customer Pays</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-xl tracking-tight">
+                          {formatNum(effectiveTotal)}
+                        </span>
+                        <span className="text-xs font-semibold text-muted-foreground">{quotedCustomerPaysAsset}</span>
+                        <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
                     </div>
                   </button>
                 )}
