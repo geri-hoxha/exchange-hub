@@ -500,12 +500,12 @@ const Exchange = () => {
                 <h2 className="text-lg font-bold">Review Exchange</h2>
               </div>
 
-              {/* Breakdown table */}
-              <div className="rounded-xl border border-border overflow-hidden mb-6">
+               {/* Breakdown table */}
+               <div className="rounded-xl border border-border overflow-hidden mb-4">
                 {/* Row: Customer Wants To Buy */}
-                <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
-                  <span className="text-sm text-muted-foreground">{mode === "wants" ? "Customer Wants To Buy" : "Customer Has"}</span>
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+                  <span className="text-xs font-medium text-muted-foreground">{mode === "wants" ? "Customer Wants To Buy" : "Customer Has"}</span>
+                  <div className="flex items-center gap-1.5">
                     {primaryAsset && <CurrencyIcon code={primaryAsset} />}
                     <span className="font-mono font-semibold text-sm">
                       {formatNum(primaryAmount)} {primaryAsset}
@@ -514,17 +514,17 @@ const Exchange = () => {
                 </div>
 
                 {/* Row: Exchange Rate */}
-                <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
-                  <span className="text-sm text-muted-foreground">Exchange Rate</span>
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                  <span className="text-xs font-medium text-muted-foreground">Exchange Rate</span>
                   <span className="font-mono font-semibold text-sm">
                     {formatNum(exchangeRate)}
                   </span>
                 </div>
 
                 {/* Row: Subtotal */}
-                <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
-                  <span className="text-sm text-muted-foreground">Subtotal</span>
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                  <span className="text-xs font-medium text-muted-foreground">Subtotal</span>
+                  <div className="flex items-center gap-1.5">
                     {quotedCustomerPaysAsset && <CurrencyIcon code={quotedCustomerPaysAsset} />}
                     <span className="font-mono font-semibold text-sm">
                       {formatNum(subtotal)} {quotedCustomerPaysAsset}
