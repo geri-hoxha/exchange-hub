@@ -80,8 +80,8 @@ export const ProfitSection = ({ report, error, loading, onRetry }: Props) => {
       <div className="grid grid-cols-2 gap-3 p-4 border-b border-border">
         {stats.map((s) => (
           <div key={s.label} className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
-              <s.icon className="h-4 w-4 text-accent" />
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <s.icon className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0">
               <p className="text-[11px] text-muted-foreground leading-tight">{s.label}</p>
@@ -121,17 +121,17 @@ export const ProfitSection = ({ report, error, loading, onRetry }: Props) => {
             )}
 
             <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" className="font-mono text-[10px]">
+              <Badge variant="outline" className="font-mono text-xs">
                 customer fees: {formatNum(report.customerFees.totalFeeLcy)}
               </Badge>
-              <Badge variant="outline" className="font-mono text-[10px]">
+              <Badge variant="outline" className="font-mono text-xs">
                 vendor fee: {formatNum(report.vendorFees.totalFeeLcy)}
               </Badge>
-              <Badge variant="outline" className="font-mono text-[10px]">
+              <Badge variant="outline" className="font-mono text-xs">
                 withdrawals: {formatNum(report.ownerContributions.totalWithdrawalsLcy)}
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">{report.explanation}</p>
+            <p className="text-sm text-muted-foreground">{report.explanation}</p>
           </div>
         )}
       </div>

@@ -139,13 +139,13 @@ export const CustomerFeesSection = ({ report, error, loading, onRetry }: Props) 
             <TableBody>
               {report.customers.map((c) => (
                 <TableRow key={c.customerId}>
-                  <TableCell className="font-medium text-sm">{c.customerName}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{c.totalExchanges}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{formatNum(c.totalFeeLcy)}</TableCell>
+                  <TableCell className="font-medium text-base">{c.customerName}</TableCell>
+                  <TableCell className="text-right font-mono text-base">{c.totalExchanges}</TableCell>
+                  <TableCell className="text-right font-mono text-base">{formatNum(c.totalFeeLcy)}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {c.assetPairs.map((p) => (
-                        <Badge key={`${p.receiveAsset}-${p.payAsset}`} variant="outline" className="font-mono text-[10px]">
+                        <Badge key={`${p.receiveAsset}-${p.payAsset}`} variant="outline" className="font-mono text-xs">
                           {p.receiveAsset}→{p.payAsset} ({p.exchangeCount})
                         </Badge>
                       ))}
