@@ -578,7 +578,7 @@ const Exchange = () => {
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
                   <span className="text-sm text-muted-foreground">Subtotal</span>
                   <div className="flex items-center gap-2">
-                    {quotedPayCurrencyData?.icon && <CurrencyIcon icon={quotedPayCurrencyData.icon} size="sm" />}
+                    {quotedCustomerPaysAsset && <CurrencyIcon icon={quotedCustomerPaysAsset} size="sm" />}
                     <span className="font-mono font-semibold text-sm">
                       {formatNum(subtotal)} {quotedCustomerPaysAsset}
                     </span>
