@@ -1,0 +1,162 @@
+import {
+  ArrowLeftRight,
+  HandCoins,
+  Wallet,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
+
+interface AssetPairFee {
+  receiveAsset: string;
+  payAsset: string;
+  exchangeCount: number;
+  totalReceiveAmountLcy: number;
+  totalPayAmountLcy: number;
+  totalFeeLcy: number;
+}
+
+interface CustomerFeeSummary {
+  customerId: number;
+  customerName: string;
+  totalExchanges: number;
+  totalFeeLcy: number;
+  assetPairs: AssetPairFee[];
+}
+
+export interface CustomerFeesReport {
+  totalExchanges: number;
+  totalFeeLcy: number;
+  totalReceiveAmountLcy: number;
+  totalPayAmountLcy: number;
+  customers: CustomerFeeSummary[];
+}
+
+const formatNum = (n: number) =>
+  n.toLocaleString(undefined, { maximumFractionDigits: 20 });
+
+const COLORS = [
+  "hsl(217, 91%, 40%)",
+  "hsl(160, 84%, 39%)",
+  "hsl(38, 92%, 50%)",
+  "hsl(0, 84%, 60%)",
+  "hsl(270, 70%, 55%)",
+  "hsl(190, 80%, 42%)",
+];
+
+interface Props {
+  report: CustomerFeesReport | null;
+  error: string | null;
+  loading: boolean;
+  onRetry: () => void;
+}
+
+export const CustomerFeesSection = ({ report, error, loading, onRetry }: Props) => {
+  const stats = [
+    { label: "Exchanges", value: report?.totalExchanges.toLocaleString() ?? "0", icon: ArrowLeftRight },
+    { label: "Fee (LCY)", value: formatNum(report?.totalFeeLcy ?? 0), icon: HandCoins },
+    { label: "Receive (LCY)", value: formatNum(report?.totalReceiveAmountLcy ?? 0), icon: Wallet },
+    { label: "Pay (LCY)", value: formatNum(report?.totalPayAmountLcy ?? 0), icon: Wallet },
+  ];
+
+  const pieData = report?.customers?.map((c) => ({
+    name: c.customerName,
+    value: Math.abs(c.totalFeeLcy),
+  })) ?? [];
+
+  return (
+    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden flex flex-col">
+      <div className="p-4 border-b border-border">
+        <h2 className="text-base font-semibold text-foreground">Customer Fees</h2>
+      </div>
+
+      {/* Stat strip */}
+      <div className="grid grid-cols-2 gap-3 p-4 border-b border-border">
+        {stats.map((s) => (
+          <div key={s.label} className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <s.icon className="h-4 w-4 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] text-muted-foreground leading-tight">{s.label}</p>
+              <p className="text-sm font-bold font-mono truncate">{loading ? "..." : s.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Chart */}
+      {pieData.length > 0 && !loading && !error && (
+        <div className="px-4 pt-3 pb-1 border-b border-border">
+          <ResponsiveContainer width="100%" height={140}>
+            <PieChart>
+              <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={30} outerRadius={55} paddingAngle={2}>
+                {pieData.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v: number) => formatNum(v)} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Table */}
+      <div className="flex-1 overflow-auto">
+        {error ? (
+          <div className="p-4 flex items-center justify-between gap-3">
+            <p className="text-sm text-destructive">{error}</p>
+            <Button size="sm" onClick={onRetry}>Retry</Button>
+          </div>
+        ) : loading ? (
+          <div className="p-4 text-sm text-muted-foreground">Loading...</div>
+        ) : !report?.customers?.length ? (
+          <div className="p-4 text-sm text-muted-foreground">No data found.</div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead className="text-right">Exchanges</TableHead>
+                <TableHead className="text-right">Fee (LCY)</TableHead>
+                <TableHead>Pairs</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {report.customers.map((c) => (
+                <TableRow key={c.customerId}>
+                  <TableCell className="font-medium text-sm">{c.customerName}</TableCell>
+                  <TableCell className="text-right font-mono text-sm">{c.totalExchanges}</TableCell>
+                  <TableCell className="text-right font-mono text-sm">{formatNum(c.totalFeeLcy)}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {c.assetPairs.map((p) => (
+                        <Badge key={`${p.receiveAsset}-${p.payAsset}`} variant="outline" className="font-mono text-[10px]">
+                          {p.receiveAsset}→{p.payAsset} ({p.exchangeCount})
+                        </Badge>
+                      ))}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+    </div>
+  );
+};
