@@ -2,6 +2,7 @@ import {
   ArrowLeftRight,
   HandCoins,
   Wallet,
+  Crown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,13 +14,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
 
 interface AssetPairFee {
   receiveAsset: string;
@@ -49,14 +43,7 @@ export interface CustomerFeesReport {
 const formatNum = (n: number) =>
   n.toLocaleString(undefined, { maximumFractionDigits: 20 });
 
-const COLORS = [
-  "hsl(217, 91%, 40%)",
-  "hsl(160, 84%, 39%)",
-  "hsl(38, 92%, 50%)",
-  "hsl(0, 84%, 60%)",
-  "hsl(270, 70%, 55%)",
-  "hsl(190, 80%, 42%)",
-];
+const RANK_COLORS = ["text-yellow-500", "text-muted-foreground", "text-amber-700"];
 
 interface Props {
   report: CustomerFeesReport | null;
@@ -73,10 +60,11 @@ export const CustomerFeesSection = ({ report, error, loading, onRetry }: Props) 
     { label: "Pay (LCY)", value: formatNum(report?.totalPayAmountLcy ?? 0), icon: Wallet },
   ];
 
-  const pieData = report?.customers?.map((c) => ({
-    name: c.customerName,
-    value: Math.abs(c.totalFeeLcy),
-  })) ?? [];
+  const topCustomers = [...(report?.customers ?? [])]
+    .sort((a, b) => Math.abs(b.totalFeeLcy) - Math.abs(a.totalFeeLcy))
+    .slice(0, 5);
+
+  const maxFee = topCustomers.length ? Math.abs(topCustomers[0].totalFeeLcy) : 1;
 
   return (
     <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden flex flex-col">
@@ -99,19 +87,31 @@ export const CustomerFeesSection = ({ report, error, loading, onRetry }: Props) 
         ))}
       </div>
 
-      {/* Chart */}
-      {pieData.length > 0 && !loading && !error && (
-        <div className="px-4 pt-3 pb-1 border-b border-border">
-          <ResponsiveContainer width="100%" height={140}>
-            <PieChart>
-              <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={30} outerRadius={55} paddingAngle={2}>
-                {pieData.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(v: number) => formatNum(v)} />
-            </PieChart>
-          </ResponsiveContainer>
+      {/* Top customers leaderboard */}
+      {topCustomers.length > 0 && !loading && !error && (
+        <div className="px-4 py-3 border-b border-border space-y-2">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+            <Crown className="h-3 w-3" /> Top customers by fee
+          </p>
+          {topCustomers.map((c, i) => (
+            <div key={c.customerId} className="flex items-center gap-2">
+              <span className={`text-xs font-bold w-4 text-right ${RANK_COLORS[i] ?? "text-muted-foreground"}`}>
+                {i + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-xs font-medium truncate">{c.customerName}</span>
+                  <span className="text-[10px] font-mono text-muted-foreground ml-2 shrink-0">{formatNum(Math.abs(c.totalFeeLcy))}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{ width: `${(Math.abs(c.totalFeeLcy) / maxFee) * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
