@@ -86,6 +86,10 @@ const Exchange = () => {
   const [editingTotal, setEditingTotal] = useState(false);
   const [totalOverride, setTotalOverride] = useState<string>("");
 
+  // Editable platform fee
+  const [editingFee, setEditingFee] = useState(false);
+  const [feeOverride, setFeeOverride] = useState<string>("");
+
   // Receipt preview
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
