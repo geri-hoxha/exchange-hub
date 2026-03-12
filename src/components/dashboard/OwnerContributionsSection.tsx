@@ -44,12 +44,7 @@ export interface OwnerContributionsReport {
 const formatNum = (n: number) =>
   n.toLocaleString(undefined, { maximumFractionDigits: 20 });
 
-const COLORS = [
-  "hsl(217, 91%, 40%)",
-  "hsl(160, 84%, 39%)",
-  "hsl(38, 92%, 50%)",
-  "hsl(0, 84%, 60%)",
-];
+const RANK_COLORS = ["text-yellow-500", "text-muted-foreground", "text-amber-700"];
 
 interface Props {
   report: OwnerContributionsReport | null;
@@ -65,10 +60,11 @@ export const OwnerContributionsSection = ({ report, error, loading, onRetry }: P
     { label: "Net Debt (LCY)", value: formatNum(report?.netCompanyDebtLcy ?? 0), icon: Landmark },
   ];
 
-  const barData = report?.owners?.map((o) => ({
-    name: o.ownerName,
-    value: o.netContributionLcy,
-  })) ?? [];
+  const topOwners = [...(report?.owners ?? [])]
+    .sort((a, b) => Math.abs(b.netContributionLcy) - Math.abs(a.netContributionLcy))
+    .slice(0, 5);
+
+  const maxContrib = topOwners.length ? Math.abs(topOwners[0].netContributionLcy) : 1;
 
   return (
     <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden flex flex-col">
@@ -90,20 +86,30 @@ export const OwnerContributionsSection = ({ report, error, loading, onRetry }: P
         ))}
       </div>
 
-      {barData.length > 0 && !loading && !error && (
-        <div className="px-4 pt-3 pb-1 border-b border-border">
-          <ResponsiveContainer width="100%" height={140}>
-            <BarChart data={barData} margin={{ left: 10, right: 10 }}>
-              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: number) => formatNum(v)} />
-              <Tooltip formatter={(v: number) => formatNum(v)} />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {barData.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+      {topOwners.length > 0 && !loading && !error && (
+        <div className="px-4 py-3 border-b border-border space-y-2">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+            <Crown className="h-3 w-3" /> Top owners by contribution
+          </p>
+          {topOwners.map((o, i) => (
+            <div key={o.ownerId} className="flex items-center gap-2">
+              <span className={`text-xs font-bold w-4 text-right ${RANK_COLORS[i] ?? "text-muted-foreground"}`}>
+                {i + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-xs font-medium truncate">{o.ownerName}</span>
+                  <span className="text-[10px] font-mono text-muted-foreground ml-2 shrink-0">{formatNum(Math.abs(o.netContributionLcy))}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{ width: `${(Math.abs(o.netContributionLcy) / maxContrib) * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
