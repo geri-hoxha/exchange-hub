@@ -151,10 +151,9 @@ const Exchange = () => {
 
   const isBuyingFiat = buyCurrencyData?.type === "fiat";
   const exchangeRate = quote?.agreedRate ?? 0;
-  const feePercent = quote?.platformFeeRate ?? 0;
-  const feeAmount = quote?.platformFeeAmount ?? 0;
-  const subtotal = Math.max(quotedCustomerPaysAmount - feeAmount, 0);
-  const computedTotal = quotedCustomerPaysAmount;
+  const effectiveFeeAmount = feeOverride !== "" ? (parseFloat(feeOverride) || 0) : feeAmount;
+  const subtotal = Math.max(quotedCustomerPaysAmount - effectiveFeeAmount, 0);
+  const computedTotal = subtotal + effectiveFeeAmount;
 
   const primaryAsset = mode === "wants" ? quotedCustomerReceivesAsset : quotedCustomerPaysAsset;
   const primaryAmount = mode === "wants" ? quotedCustomerReceivesAmount : quotedCustomerPaysAmount;
