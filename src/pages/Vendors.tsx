@@ -17,7 +17,11 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import DateTimePicker from "@/components/ui/date-time-picker";
 import api from "@/lib/axios";
+import { getApiErrorMessage } from "@/lib/apiError";
+import { getAllAssets, type Asset } from "@/services/assetsService";
+import { toast } from "sonner";
 
 // --- Asset colors ---
 const assetColors: Record<string, string> = {
@@ -79,8 +83,8 @@ interface VendorPurchasesResponse {
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
-const formatNum = (n: number, dec = 2) =>
-  n.toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec });
+const formatNum = (n: number) =>
+  n.toLocaleString(undefined, { maximumFractionDigits: 20 });
 
 type SortField = "name" | "tradeCount" | "totalVolumeLcy" | "netFeeLcy" | "lastTradeAtUtc";
 type TradeFilter = "all" | "1+" | "5+" | "10+";
@@ -91,7 +95,7 @@ const emptyVendorForm = { name: "" };
 const emptyPurchaseForm = {
   asset: "", quantity: "", paidWithAsset: "", paidWithQuantity: "",
   actualTotalCostLcy: "",
-  occurredAtUtc: new Date().toISOString().slice(0, 16),
+  occurredAtUtc: new Date().toISOString(),
   referenceNo: "", note: "",
 };
 
@@ -112,6 +116,7 @@ const Vendors = () => {
   const [sortBy, setSortBy] = useState<SortField>("name");
   const [tradeFilter, setTradeFilter] = useState<TradeFilter>("all");
   const [feeFilter, setFeeFilter] = useState<FeeFilter>("all");
+  const [availableAssets, setAvailableAssets] = useState<Asset[]>([]);
 
   // Vendor modal
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
@@ -144,6 +149,20 @@ const Vendors = () => {
   useEffect(() => {
     void fetchVendors();
   }, [fetchVendors]);
+
+  useEffect(() => {
+    const fetchAssets = async () => {
+      try {
+        const assets = await getAllAssets();
+        setAvailableAssets(assets);
+      } catch {
+        // Keep purchase form usable even if assets cannot be loaded.
+        setAvailableAssets([]);
+      }
+    };
+
+    void fetchAssets();
+  }, []);
 
   const fetchVendorPurchases = useCallback(async (vendorId: number) => {
     try {
@@ -227,8 +246,14 @@ const Vendors = () => {
       }
       await fetchVendors();
       setVendorModalOpen(false);
-    } catch {
+      toast.success(editingVendor ? "Vendor updated" : "Vendor created", {
+        description: payload.name,
+      });
+    } catch (error) {
       setVendorsError(editingVendor ? "Failed to update vendor." : "Failed to create vendor.");
+      toast.error(editingVendor ? "Failed to update vendor" : "Failed to create vendor", {
+        description: getApiErrorMessage(error),
+      });
     } finally {
       setSavingVendor(false);
     }
@@ -247,8 +272,11 @@ const Vendors = () => {
       });
       await fetchVendors();
       setDeleteVendorId(null);
-    } catch {
+    } catch (error) {
       setVendorsError("Failed to delete vendor.");
+      toast.error("Failed to delete vendor", {
+        description: getApiErrorMessage(error),
+      });
     } finally {
       setDeletingVendor(false);
     }
@@ -280,8 +308,14 @@ const Vendors = () => {
       await api.post("/api/vendor-purchases", payload);
       await Promise.all([fetchVendorPurchases(purchaseVendorId), fetchVendors()]);
       setPurchaseModalOpen(false);
-    } catch {
+      toast.success("Purchase created", {
+        description: `${formatNum(payload.quantity)} ${payload.asset}`,
+      });
+    } catch (error) {
       setVendorsError("Failed to create purchase.");
+      toast.error("Failed to create purchase", {
+        description: getApiErrorMessage(error),
+      });
     } finally {
       setSavingPurchase(false);
     }
@@ -295,8 +329,11 @@ const Vendors = () => {
       await api.delete(`/api/vendor-purchases/${deletePurchase.id}`);
       await Promise.all([fetchVendorPurchases(deletePurchase.vendorId), fetchVendors()]);
       setDeletePurchase(null);
-    } catch {
+    } catch (error) {
       setVendorsError("Failed to delete purchase.");
+      toast.error("Failed to delete purchase", {
+        description: getApiErrorMessage(error),
+      });
     } finally {
       setDeletingPurchase(false);
     }
@@ -483,7 +520,7 @@ const Vendors = () => {
                                         </TableCell>
                                         <TableCell className="text-right font-mono text-sm">{formatNum(p.paidWithQuantity)}</TableCell>
                                         <TableCell className="text-right font-mono text-sm">{formatNum(p.actualTotalCostLcy ?? p.boughtAssetCostLcy ?? 0)}</TableCell>
-                                        <TableCell className="text-right font-mono text-xs text-muted-foreground">{formatNum(p.unitCostLcy ?? 0, 5)}</TableCell>
+                                        <TableCell className="text-right font-mono text-xs text-muted-foreground">{formatNum(p.unitCostLcy ?? 0)}</TableCell>
                                         <TableCell className="text-right">
                                           <span className={`font-mono text-sm font-medium ${(p.vendorFeeLcy ?? 0) >= 0 ? "text-accent" : "text-destructive"}`}>
                                             {formatNum(p.vendorFeeLcy ?? 0)}
@@ -541,7 +578,28 @@ const Vendors = () => {
           <div className="grid grid-cols-2 gap-4 py-2">
             <div className="space-y-2">
               <Label>Asset (Bought)</Label>
-              <Input placeholder="e.g. EUR" value={purchaseForm.asset} onChange={(e) => setPurchaseForm((f) => ({ ...f, asset: e.target.value }))} />
+              <Select
+                value={purchaseForm.asset}
+                onValueChange={(value) => setPurchaseForm((f) => ({ ...f, asset: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select bought asset" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest">Crypto</div>
+                  {availableAssets.filter((a) => a.type === "crypto").map((a) => (
+                    <SelectItem key={a.code} value={a.code}>
+                      {a.code}
+                    </SelectItem>
+                  ))}
+                  <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Fiat</div>
+                  {availableAssets.filter((a) => a.type === "fiat").map((a) => (
+                    <SelectItem key={a.code} value={a.code}>
+                      {a.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Quantity</Label>
@@ -549,19 +607,44 @@ const Vendors = () => {
             </div>
             <div className="space-y-2">
               <Label>Paid With Asset</Label>
-              <Input placeholder="e.g. USDT-TRC20" value={purchaseForm.paidWithAsset} onChange={(e) => setPurchaseForm((f) => ({ ...f, paidWithAsset: e.target.value }))} />
+              <Select
+                value={purchaseForm.paidWithAsset}
+                onValueChange={(value) => setPurchaseForm((f) => ({ ...f, paidWithAsset: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payment asset" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest">Crypto</div>
+                  {availableAssets.filter((a) => a.type === "crypto").map((a) => (
+                    <SelectItem key={a.code} value={a.code}>
+                      {a.code}
+                    </SelectItem>
+                  ))}
+                  <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Fiat</div>
+                  {availableAssets.filter((a) => a.type === "fiat").map((a) => (
+                    <SelectItem key={a.code} value={a.code}>
+                      {a.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Paid With Quantity</Label>
               <Input type="number" placeholder="0.00" value={purchaseForm.paidWithQuantity} onChange={(e) => setPurchaseForm((f) => ({ ...f, paidWithQuantity: e.target.value }))} />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 col-span-2">
               <Label>Actual Total Cost (LCY)</Label>
               <Input type="number" placeholder="0.00" value={purchaseForm.actualTotalCostLcy} onChange={(e) => setPurchaseForm((f) => ({ ...f, actualTotalCostLcy: e.target.value }))} />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 col-span-2">
               <Label>Occurred At</Label>
-              <Input type="datetime-local" value={purchaseForm.occurredAtUtc} onChange={(e) => setPurchaseForm((f) => ({ ...f, occurredAtUtc: e.target.value }))} />
+              <DateTimePicker
+                value={purchaseForm.occurredAtUtc}
+                onChange={(value) => setPurchaseForm((f) => ({ ...f, occurredAtUtc: value }))}
+                placeholder="Pick purchase date"
+              />
             </div>
             <div className="space-y-2">
               <Label>Reference No</Label>

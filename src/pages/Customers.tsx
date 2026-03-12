@@ -27,6 +27,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import api from "@/lib/axios";
+import { getApiErrorMessage } from "@/lib/apiError";
+import { toast } from "sonner";
 
 interface BalanceEntry {
   asset: string;
@@ -56,8 +58,8 @@ const formatDate = (iso: string) => {
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-const formatNum = (n: number, decimals = 2) =>
-  n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+const formatNum = (n: number) =>
+  n.toLocaleString(undefined, { maximumFractionDigits: 20 });
 
 const BalanceList = ({ items, variant }: { items: BalanceEntry[]; variant: "owe" | "owed" }) => {
   if (!items.length) return <span className="text-muted-foreground text-xs">—</span>;
@@ -73,7 +75,7 @@ const BalanceList = ({ items, variant }: { items: BalanceEntry[]; variant: "owe"
               : "border-accent/30 text-accent"
           }`}
         >
-          {formatNum(b.amount, 2)} {b.asset}
+          {formatNum(b.amount)} {b.asset}
         </Badge>
       ))}
     </div>
@@ -184,8 +186,14 @@ const Customers = () => {
       }
       await fetchCustomers();
       setCustomerModalOpen(false);
-    } catch {
+      toast.success(editingCustomer ? "Customer updated" : "Customer created", {
+        description: payload.name,
+      });
+    } catch (error) {
       setCustomersError(editingCustomer ? "Failed to update customer." : "Failed to create customer.");
+      toast.error(editingCustomer ? "Failed to update customer" : "Failed to create customer", {
+        description: getApiErrorMessage(error),
+      });
     } finally {
       setSavingCustomer(false);
     }
@@ -200,8 +208,11 @@ const Customers = () => {
       await api.delete(`/api/customers/${deleteId}`);
       await fetchCustomers();
       setDeleteId(null);
-    } catch {
+    } catch (error) {
       setCustomersError("Failed to delete customer.");
+      toast.error("Failed to delete customer", {
+        description: getApiErrorMessage(error),
+      });
     } finally {
       setDeletingCustomer(false);
     }

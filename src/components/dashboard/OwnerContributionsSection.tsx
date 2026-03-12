@@ -136,10 +136,10 @@ export const OwnerContributionsSection = ({ report, error, loading, onRetry }: P
             <TableBody>
               {report.owners.map((o) => (
                 <TableRow key={o.ownerId}>
-                  <TableCell className="font-medium text-base">{o.ownerName}</TableCell>
+                  <TableCell className="font-medium text-base ">{o.ownerName}</TableCell>
                   <TableCell className="text-right font-mono text-base">{formatNum(o.netContributionLcy)}</TableCell>
                   <TableCell>
-                    <div className="space-y-1">
+                    <div className="space-y-1 md:w-60">
                       {o.directions.map((d) => (
                         <div key={d.direction} className="flex flex-wrap gap-1">
                           <Badge variant="secondary" className="text-xs">{d.direction}</Badge>

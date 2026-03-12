@@ -17,7 +17,11 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import DateTimePicker from "@/components/ui/date-time-picker";
 import api from "@/lib/axios";
+import { getApiErrorMessage } from "@/lib/apiError";
+import { getAllAssets, type Asset } from "@/services/assetsService";
+import { toast } from "sonner";
 
 // --- Asset colors ---
 const assetColors: Record<string, string> = {
@@ -74,13 +78,13 @@ const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
 const formatNum = (n: number) =>
-  n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  n.toLocaleString(undefined, { maximumFractionDigits: 20 });
 
 const emptyOwnerForm = { name: "", note: "" };
 
 const emptyContribForm = {
   asset: "", amount: "", unitValueLcy: "", totalValueLcy: "",
-  contributedAtUtc: new Date().toISOString().slice(0, 16),
+  contributedAtUtc: new Date().toISOString(),
   referenceNo: "", note: "",
 };
 
@@ -105,6 +109,7 @@ const Owners = () => {
   const [balanceFilter, setBalanceFilter] = useState<BalanceFilter>("all");
   const [contribFilter, setContribFilter] = useState<ContribFilter>("all");
   const [assetFilter, setAssetFilter] = useState<string>("all");
+  const [availableAssets, setAvailableAssets] = useState<Asset[]>([]);
 
   // Owner modal
   const [ownerModalOpen, setOwnerModalOpen] = useState(false);
@@ -167,6 +172,20 @@ const Owners = () => {
   useEffect(() => {
     void fetchOwners();
   }, [fetchOwners]);
+
+  useEffect(() => {
+    const fetchAssets = async () => {
+      try {
+        const assets = await getAllAssets();
+        setAvailableAssets(assets);
+      } catch {
+        // Keep contribution form usable even if assets cannot be loaded.
+        setAvailableAssets([]);
+      }
+    };
+
+    void fetchAssets();
+  }, []);
 
   // Collect all unique assets across owners
   const allAssets = useMemo(() => {
@@ -242,8 +261,14 @@ const Owners = () => {
       }
       await fetchOwners();
       setOwnerModalOpen(false);
-    } catch {
+      toast.success(editingOwner ? "Owner updated" : "Owner created", {
+        description: payload.name,
+      });
+    } catch (error) {
       setOwnersError(editingOwner ? "Failed to update owner." : "Failed to create owner.");
+      toast.error(editingOwner ? "Failed to update owner" : "Failed to create owner", {
+        description: getApiErrorMessage(error),
+      });
     } finally {
       setSavingOwner(false);
     }
@@ -257,8 +282,11 @@ const Owners = () => {
       await api.delete(`/api/owners/${deleteOwnerId}`);
       await fetchOwners();
       setDeleteOwnerId(null);
-    } catch {
+    } catch (error) {
       setOwnersError("Failed to delete owner.");
+      toast.error("Failed to delete owner", {
+        description: getApiErrorMessage(error),
+      });
     } finally {
       setDeletingOwner(false);
     }
@@ -291,8 +319,14 @@ const Owners = () => {
       await api.post("/api/owner-contributions", payload);
       await Promise.all([fetchOwners(), fetchContributionsForOwner(contribOwnerId)]);
       setContribModalOpen(false);
-    } catch {
+      toast.success("Contribution created", {
+        description: `${formatNum(payload.amount)} ${payload.asset}`,
+      });
+    } catch (error) {
       setContributionsError("Failed to create contribution.");
+      toast.error("Failed to create contribution", {
+        description: getApiErrorMessage(error),
+      });
     } finally {
       setSavingContrib(false);
     }
@@ -306,8 +340,11 @@ const Owners = () => {
       await api.delete(`/api/owner-contributions/${deleteContribTarget.id}`);
       await Promise.all([fetchOwners(), fetchContributionsForOwner(deleteContribTarget.ownerId)]);
       setDeleteContribTarget(null);
-    } catch {
+    } catch (error) {
       setContributionsError("Failed to delete contribution.");
+      toast.error("Failed to delete contribution", {
+        description: getApiErrorMessage(error),
+      });
     } finally {
       setDeletingContrib(false);
     }
@@ -555,7 +592,28 @@ const Owners = () => {
           <div className="grid grid-cols-2 gap-4 py-2">
             <div className="space-y-2">
               <Label>Asset</Label>
-              <Input placeholder="e.g. EUR" value={contribForm.asset} onChange={(e) => setContribForm((f) => ({ ...f, asset: e.target.value }))} />
+              <Select
+                value={contribForm.asset}
+                onValueChange={(value) => setContribForm((f) => ({ ...f, asset: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select asset" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest">Crypto</div>
+                  {availableAssets.filter((a) => a.type === "crypto").map((a) => (
+                    <SelectItem key={a.code} value={a.code}>
+                      {a.code}
+                    </SelectItem>
+                  ))}
+                  <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Fiat</div>
+                  {availableAssets.filter((a) => a.type === "fiat").map((a) => (
+                    <SelectItem key={a.code} value={a.code}>
+                      {a.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Amount</Label>
@@ -569,15 +627,20 @@ const Owners = () => {
               <Label>Total Value (LCY)</Label>
               <Input type="number" placeholder="0.00" value={contribForm.totalValueLcy} onChange={(e) => setContribForm((f) => ({ ...f, totalValueLcy: e.target.value }))} />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 col-span-2">
               <Label>Contributed At</Label>
-              <Input type="datetime-local" value={contribForm.contributedAtUtc} onChange={(e) => setContribForm((f) => ({ ...f, contributedAtUtc: e.target.value }))} />
+              <DateTimePicker
+                value={contribForm.contributedAtUtc}
+                onChange={(value) => setContribForm((f) => ({ ...f, contributedAtUtc: value }))}
+                placeholder="Pick contribution date"
+              />
             </div>
+          
             <div className="space-y-2">
               <Label>Reference No</Label>
               <Input placeholder="REF-XXX" value={contribForm.referenceNo} onChange={(e) => setContribForm((f) => ({ ...f, referenceNo: e.target.value }))} />
             </div>
-            <div className="col-span-2 space-y-2">
+            <div className="  space-y-2">
               <Label>Note</Label>
               <Input placeholder="Optional note" value={contribForm.note} onChange={(e) => setContribForm((f) => ({ ...f, note: e.target.value }))} />
             </div>

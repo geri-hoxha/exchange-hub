@@ -103,10 +103,10 @@ export const ProfitSection = ({ report, error, loading, onRetry }: Props) => {
         ) : !report ? (
           <div className="p-4 text-sm text-muted-foreground">No data found.</div>
         ) : (
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4 ">
             {/* Bar chart */}
             {barData.length > 0 && (
-              <ResponsiveContainer width="100%" height={160}>
+              <ResponsiveContainer width="100%" height={160} className={'-ml-10'}>
                 <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 10 }}>
                   <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v: number) => formatNum(v)} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={100} />
@@ -133,16 +133,16 @@ export const ProfitSection = ({ report, error, loading, onRetry }: Props) => {
 
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline" className="font-mono text-xs">
-                customer fees: {formatNum(report.customerFees.totalFeeLcy)}
+                Customer fees: {formatNum(report.customerFees.totalFeeLcy)}
               </Badge>
               <Badge variant="outline" className="font-mono text-xs">
-                vendor fee: {formatNum(report.vendorFees.totalFeeLcy)}
+                Vendor fee: {formatNum(report.vendorFees.totalFeeLcy)}
               </Badge>
               <Badge variant="outline" className="font-mono text-xs">
-                withdrawals: {formatNum(report.ownerContributions.totalWithdrawalsLcy)}
+                Withdrawals: {formatNum(report.ownerContributions.totalWithdrawalsLcy)}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">{report.explanation}</p>
+            <p className="text-[10px] text-muted-foreground">{report.explanation}</p>
           </div>
         )}
       </div>

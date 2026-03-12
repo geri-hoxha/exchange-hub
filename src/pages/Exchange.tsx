@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeftRight, ArrowRight, Check, X, Pencil, Bitcoin, DollarSign, Euro, PoundSterling, Coins, Download, Share2, RefreshCw } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, Check, X, Pencil, Bitcoin, DollarSign, Euro, PoundSterling, Coins, Download, Share2, RefreshCw, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
   Select,
   SelectContent,
@@ -17,16 +19,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getAllAssets } from "@/services/assetsService";
+import api from "@/lib/axios";
+import { getApiErrorMessage } from "@/lib/apiError";
+import { cn } from "@/lib/utils";
+import { getAllAssets, type Asset } from "@/services/assetsService";
  
-
-const rates: Record<string, number> = {
-  "USDT-TRC20": 1, "USDT-ERC20": 1,
-  BTC: 67500, ETH: 3450, BNB: 580, SOL: 145, XRP: 0.62, ADA: 0.45,
-  USD: 1, EUR: 1.08, GBP: 1.27, ARS: 0.0012, BRL: 0.20,
-};
-
-const FEE_OPTIONS = [0.5, 1, 1.5, 2, 2.5, 3, 5];
 
 // Color map for currency icons
 const iconColors: Record<string, string> = {
@@ -69,6 +66,41 @@ const CurrencyIcon = ({ icon, size = "md" }: { icon: string; size?: "sm" | "md" 
   );
 };
 
+type ExchangeAsset = Asset & {
+  symbol?: string;
+  icon?: string;
+};
+
+interface ExchangeQuoteRequest {
+  customerPaysAsset: string;
+  customerReceivesAsset: string;
+  customerPaysAmount: number;
+  customerReceivesAmount: number;
+}
+
+interface ExchangeQuoteResponse {
+  id: string;
+  inputMode: string;
+  customerPaysAsset: string;
+  customerPaysAmount: number;
+  customerPaysAmountLcy: number;
+  customerReceivesAsset: string;
+  customerReceivesAmount: number;
+  customerReceivesAmountLcy: number;
+  agreedRate: number;
+  feeLcy: number;
+  marginFeeRate: number;
+  platformFeeRate: number;
+  marginFeeAmount: number;
+  platformFeeAmount: number;
+  hasSufficientInventory: boolean;
+}
+
+interface ExchangeCustomer {
+  id: number;
+  name: string;
+}
+
 const Exchange = () => {
   // Step 1
   const [mode, setMode] = useState<"wants" | "has">("wants");
@@ -79,10 +111,14 @@ const Exchange = () => {
 
   // Step 2
   const [step, setStep] = useState<1 | 2>(1);
-  const [feePercent, setFeePercent] = useState(2);
-  const [editingFee, setEditingFee] = useState(false);
-  const [feeInput, setFeeInput] = useState("2");
   const [gasFee, setGasFee] = useState("");
+  const [quote, setQuote] = useState<ExchangeQuoteResponse | null>(null);
+  const [fetchingQuote, setFetchingQuote] = useState(false);
+  const [savingExchange, setSavingExchange] = useState(false);
+  const [customers, setCustomers] = useState<ExchangeCustomer[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [customerId, setCustomerId] = useState<number | null>(null);
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
 
   // Editable total
   const [editingTotal, setEditingTotal] = useState(false);
@@ -109,30 +145,56 @@ const Exchange = () => {
   };
 
   // currencies
-  const [currencies, setCurrencies]= useState([])
+  const [currencies, setCurrencies] = useState<ExchangeAsset[]>([]);
 
   useEffect(() => {
     getCurrencies()
   }, []);
 
+  useEffect(() => {
+    void getCustomers();
+  }, []);
+
   const getCurrencies = async () => {
     const response = await getAllAssets();
-    setCurrencies(response)
-  }
+    setCurrencies(response as ExchangeAsset[]);
+  };
+
+  const getCustomers = async () => {
+    try {
+      setLoadingCustomers(true);
+      const response = await api.get<{ items?: ExchangeCustomer[] } | ExchangeCustomer[]>("/api/customers");
+      const items = Array.isArray(response.data) ? response.data : (response.data.items ?? []);
+      setCustomers(items.map((customer) => ({ id: customer.id, name: customer.name })));
+    } catch {
+      setCustomers([]);
+    } finally {
+      setLoadingCustomers(false);
+    }
+  };
 
 
   const buyCurrencyData = currencies.find((c) => c.code === buyCurrency);
   const payCurrencyData = currencies.find((c) => c.code === payCurrency);
-  const isBuyingFiat = buyCurrencyData?.type === "fiat";
-
-  // Conversion math
   const amountNum = parseFloat(amount) || 0;
-  const buyRateUsd = rates[buyCurrency] || 1;
-  const payRateUsd = rates[payCurrency] || 1;
-  const baseCost = (amountNum * buyRateUsd) / payRateUsd;
-  const feeAmount = baseCost * (feePercent / 100);
+
+  const quotedCustomerPaysAmount = quote?.customerPaysAmount ?? 0;
+  const quotedCustomerReceivesAmount = quote?.customerReceivesAmount ?? 0;
+  const quotedCustomerPaysAsset = quote?.customerPaysAsset ?? payCurrency;
+  const quotedCustomerReceivesAsset = quote?.customerReceivesAsset ?? buyCurrency;
+
+  const isBuyingFiat = buyCurrencyData?.type === "fiat";
+  const exchangeRate = quote?.agreedRate ?? 0;
+  const feePercent = quote?.platformFeeRate ?? 0;
+  const feeAmount = quote?.platformFeeAmount ?? 0;
+  const subtotal = Math.max(quotedCustomerPaysAmount - feeAmount, 0);
+  const computedTotal = quotedCustomerPaysAmount;
+
+  const primaryAsset = mode === "wants" ? quotedCustomerReceivesAsset : quotedCustomerPaysAsset;
+  const primaryAmount = mode === "wants" ? quotedCustomerReceivesAmount : quotedCustomerPaysAmount;
+  const primaryCurrencyData = currencies.find((c) => c.code === primaryAsset);
+  const quotedPayCurrencyData = currencies.find((c) => c.code === quotedCustomerPaysAsset);
   const gasFeeNum = parseFloat(gasFee) || 0;
-  const computedTotal = baseCost + feeAmount;
 
   // Effective total (might be overridden)
   const effectiveTotal = totalOverride !== "" ? (parseFloat(totalOverride) || 0) : computedTotal;
@@ -152,10 +214,10 @@ const Exchange = () => {
     buyCurrency !== payCurrency &&
     selectedPairHasOppositeTypes;
 
-  // Reset total override when fee changes
+  // Reset manual override when quote changes.
   useEffect(() => {
     setTotalOverride("");
-  }, [feePercent]);
+  }, [quote?.id]);
 
   // When toggling between "wants" and "has", flip selected currencies.
   useEffect(() => {
@@ -174,10 +236,37 @@ const Exchange = () => {
     }
   }, [buyCurrency, payCurrency, buyCurrencyData, payCurrencyData]);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!canProceed) return;
-    setStep(2);
-    setTotalOverride("");
+
+    const payload: ExchangeQuoteRequest =
+      mode === "wants"
+        ? {
+            customerPaysAsset: payCurrency,
+            customerReceivesAsset: buyCurrency,
+            customerPaysAmount: 0,
+            customerReceivesAmount: amountNum,
+          }
+        : {
+            customerPaysAsset: buyCurrency,
+            customerReceivesAsset: payCurrency,
+            customerPaysAmount: amountNum,
+            customerReceivesAmount: 0,
+          };
+
+    try {
+      setFetchingQuote(true);
+      const response = await api.post<ExchangeQuoteResponse>("/api/exchange-slips/preview", payload);
+      setQuote(response.data);
+      setStep(2);
+      setTotalOverride("");
+    } catch (error) {
+      toast.error("Failed to get exchange quote", {
+        description: getApiErrorMessage(error),
+      });
+    } finally {
+      setFetchingQuote(false);
+    }
   };
 
   const handleDiscard = () => {
@@ -186,35 +275,64 @@ const Exchange = () => {
     setBuyCurrency("");
     setPayCurrency("");
     setGasFee("");
-    setFeePercent(2);
-    setFeeInput("2");
+    setQuote(null);
     setTotalOverride("");
-    setEditingFee(false);
     setEditingTotal(false);
+    setCustomerId(null);
+    setCustomerPickerOpen(false);
   };
 
-  const handleSave = () => {
-    setShowReceipt(true);
-    // Generate image after dialog renders
-    setTimeout(async () => {
-      if (receiptRef.current) {
-        try {
-          const dataUrl = await toPng(receiptRef.current, { 
-            backgroundColor: '#0d1117',
-            pixelRatio: 2,
-          });
-          setReceiptImage(dataUrl);
-        } catch (err) {
-          console.error("Failed to generate receipt image", err);
+  const handleSave = async () => {
+    if (!quote?.id) return;
+    if (!customerId) {
+      toast.error("Customer is required", {
+        description: "Please select a customer before saving this exchange.",
+      });
+      return;
+    }
+
+    const paymentPath = (exchangeSlipId: string) =>
+      mode === "has"
+        ? `/api/exchange-slips/${exchangeSlipId}/pay-payments`
+        : `/api/exchange-slips/${exchangeSlipId}/receive-payments`;
+
+    try {
+      setSavingExchange(true);
+      const fromQuoteResponse = await api.post<{ id?: string }>(
+        `/api/exchange-slips/${quote.id}/from-quote`,
+        { customerId }
+      );
+      const exchangeSlipId = fromQuoteResponse.data?.id || quote.id;
+      await api.post(paymentPath(exchangeSlipId), {});
+
+      setShowReceipt(true);
+      // Generate image after dialog renders
+      setTimeout(async () => {
+        if (receiptRef.current) {
+          try {
+            const dataUrl = await toPng(receiptRef.current, {
+              backgroundColor: "#0d1117",
+              pixelRatio: 2,
+            });
+            setReceiptImage(dataUrl);
+          } catch (err) {
+            console.error("Failed to generate receipt image", err);
+          }
         }
-      }
-    }, 300);
+      }, 300);
+    } catch (error) {
+      toast.error("Failed to finalize exchange", {
+        description: getApiErrorMessage(error),
+      });
+    } finally {
+      setSavingExchange(false);
+    }
   };
 
   const handleDownloadReceipt = () => {
     if (!receiptImage) return;
     const link = document.createElement("a");
-    link.download = `exchange-${buyCurrency}-${payCurrency}-${Date.now()}.png`;
+    link.download = `exchange-${quotedCustomerReceivesAsset}-${quotedCustomerPaysAsset}-${Date.now()}.png`;
     link.href = receiptImage;
     link.click();
   };
@@ -236,37 +354,24 @@ const Exchange = () => {
 
   const handleConfirmAndClose = () => {
     toast.success("Exchange recorded successfully", {
-      description: `${amountNum.toLocaleString()} ${buyCurrency} → ${formatNum(effectiveTotal, 8)} ${payCurrency}`,
+      description: `${formatNum(quotedCustomerReceivesAmount)} ${quotedCustomerReceivesAsset} → ${formatNum(effectiveTotal)} ${quotedCustomerPaysAsset}`,
     });
     setShowReceipt(false);
     setReceiptImage(null);
     handleDiscard();
   };
 
-  const handleFeeEdit = () => {
-    setEditingFee(true);
-    setFeeInput(String(feePercent));
-  };
-
-  const handleFeeConfirm = () => {
-    const val = parseFloat(feeInput);
-    if (!isNaN(val) && val >= 0 && val <= 100) {
-      setFeePercent(val);
-    }
-    setEditingFee(false);
-  };
-
   const handleTotalEdit = () => {
     setEditingTotal(true);
-    setTotalOverride(totalOverride || String(computedTotal.toFixed(2)));
+    setTotalOverride(totalOverride || String(computedTotal));
   };
 
   const handleTotalConfirm = () => {
     setEditingTotal(false);
   };
 
-  const formatNum = (n: number, decimals = 2) =>
-    n < 0.01 && n > 0 ? n.toFixed(8) : n.toLocaleString(undefined, { maximumFractionDigits: decimals });
+  const formatNum = (n: number) =>
+    n.toLocaleString(undefined, { maximumFractionDigits: 20 });
 
   const payCurrencyTypeFilter =
     buyCurrencyData?.type === "crypto"
@@ -278,6 +383,7 @@ const Exchange = () => {
   const payCurrencyOptions = payCurrencyTypeFilter
     ? currencies.filter((c) => c.type === payCurrencyTypeFilter)
     : currencies;
+  const selectedCustomer = customers.find((customer) => customer.id === customerId);
 
   return (
     <div>
@@ -369,13 +475,13 @@ const Exchange = () => {
                     <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest">Crypto</div>
                     {currencies.filter(c => c.type === "crypto").map((c) => (
                       <SelectItem key={c.code} value={c.code}>
-                        <span className="font-mono mr-1">{c.symbol}</span> {c.code}
+                        <span className="font-mono mr-1">{c.symbol ?? c.code}</span> {c.code}
                       </SelectItem>
                     ))}
                     <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Fiat</div>
                     {currencies.filter(c => c.type === "fiat").map((c) => (
                       <SelectItem key={c.code} value={c.code}>
-                        <span className="font-mono mr-1">{c.symbol}</span> {c.code}
+                        <span className="font-mono mr-1">{c.symbol ?? c.code}</span> {c.code}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -405,7 +511,7 @@ const Exchange = () => {
                     </div>
                     {payCurrencyOptions.map((c) => (
                       <SelectItem key={c.code} value={c.code}>
-                        <span className="font-mono mr-1">{c.symbol}</span> {c.code}
+                        <span className="font-mono mr-1">{c.symbol ?? c.code}</span> {c.code}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -413,12 +519,12 @@ const Exchange = () => {
               </div>
 
               <Button
-                onClick={handleNext}
+                onClick={() => void handleNext()}
                 size="lg"
                 className="w-full h-12 text-base font-bold"
-                disabled={!canProceed}
+                disabled={!canProceed || fetchingQuote}
               >
-                Next
+                {fetchingQuote ? "Getting Quote..." : "Next"}
               </Button>
             </>
           )}
@@ -437,9 +543,9 @@ const Exchange = () => {
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
                   <span className="text-sm text-muted-foreground">{mode === "wants" ? "Customer Wants To Buy" : "Customer Has"}</span>
                   <div className="flex items-center gap-2">
-                    {buyCurrencyData && <CurrencyIcon icon={buyCurrencyData.icon} size="sm" />}
+                    {primaryCurrencyData?.icon && <CurrencyIcon icon={primaryCurrencyData.icon} size="sm" />}
                     <span className="font-mono font-semibold text-sm">
-                      {formatNum(amountNum, 2)} {buyCurrency}
+                      {formatNum(primaryAmount)} {primaryAsset}
                     </span>
                   </div>
                 </div>
@@ -448,7 +554,7 @@ const Exchange = () => {
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
                   <span className="text-sm text-muted-foreground">Exchange Rate</span>
                   <span className="font-mono font-semibold text-sm">
-                    {((buyRateUsd) / (payRateUsd)).toFixed(16).replace(/0+$/, '').replace(/\.$/, '')}
+                    {formatNum(exchangeRate)}
                   </span>
                 </div>
 
@@ -456,42 +562,22 @@ const Exchange = () => {
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
                   <span className="text-sm text-muted-foreground">Subtotal</span>
                   <div className="flex items-center gap-2">
-                    {payCurrencyData && <CurrencyIcon icon={payCurrencyData.icon} size="sm" />}
+                    {quotedPayCurrencyData?.icon && <CurrencyIcon icon={quotedPayCurrencyData.icon} size="sm" />}
                     <span className="font-mono font-semibold text-sm">
-                      {formatNum(baseCost, 8)} {payCurrency}
+                      {formatNum(subtotal)} {quotedCustomerPaysAsset}
                     </span>
                   </div>
                 </div>
 
-                {/* Row: Platform Fee — clickable to edit */}
+                {/* Row: Platform Fee */}
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-border last:border-b-0">
                   <span className="text-sm text-muted-foreground">Platform Fee</span>
                   <div className="flex items-center gap-2">
-                    {editingFee ? (
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          value={feeInput}
-                          onChange={(e) => setFeeInput(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleFeeConfirm()}
-                          className="w-16 h-7 text-sm font-mono text-center bg-background"
-                          autoFocus
-                        />
-                        <span className="text-xs text-muted-foreground">%</span>
-                        <Button size="sm" variant="ghost" onClick={handleFeeConfirm} className="h-7 w-7 p-0">
-                          <Check className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <button onClick={handleFeeEdit} className="flex items-center gap-1.5 group cursor-pointer">
-                        <span className="text-primary font-semibold text-sm">{feePercent}%</span>
-                        <span className="text-muted-foreground">→</span>
-                        <span className="font-mono font-semibold text-sm">
-                          {formatNum(feeAmount, 8)} {payCurrency}
-                        </span>
-                        <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </button>
-                    )}
+                    <span className="text-primary font-semibold text-sm">{formatNum(feePercent)}%</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span className="font-mono font-semibold text-sm">
+                      {formatNum(feeAmount)} {quotedCustomerPaysAsset}
+                    </span>
                   </div>
                 </div>
 
@@ -516,7 +602,7 @@ const Exchange = () => {
                       Adjustment
                     </span>
                     <span className={`font-mono font-semibold text-sm ${adjustment > 0 ? "text-accent" : "text-destructive"}`}>
-                      {adjustment > 0 ? "+" : ""}{formatNum(adjustment, 8)} {payCurrency}
+                      {adjustment > 0 ? "+" : ""}{formatNum(adjustment)} {quotedCustomerPaysAsset}
                     </span>
                   </div>
                 )}
@@ -536,7 +622,7 @@ const Exchange = () => {
                         className="w-52 h-11 text-right font-mono text-xl font-bold bg-background"
                         autoFocus
                       />
-                      <span className="text-sm font-bold text-muted-foreground">{payCurrency}</span>
+                      <span className="text-sm font-bold text-muted-foreground">{quotedCustomerPaysAsset}</span>
                       <Button size="sm" variant="ghost" onClick={handleTotalConfirm} className="h-9 w-9 p-0">
                         <Check className="h-4 w-4" />
                       </Button>
@@ -550,9 +636,9 @@ const Exchange = () => {
                     </div>
                     <div className="text-center mt-2">
                       <p className="font-mono font-bold text-3xl tracking-tight">
-                        {formatNum(effectiveTotal, 8)}
+                        {formatNum(effectiveTotal)}
                       </p>
-                      <p className="text-sm font-bold text-muted-foreground mt-1">{payCurrency}</p>
+                      <p className="text-sm font-bold text-muted-foreground mt-1">{quotedCustomerPaysAsset}</p>
                     </div>
                   </button>
                 )}
@@ -561,7 +647,61 @@ const Exchange = () => {
               {isBuyingFiat && gasFeeNum > 0 && (
                 <div className="flex justify-between text-xs text-destructive mb-4 px-1">
                   <span>Gas fee loss (our cost)</span>
-                  <span className="font-mono font-semibold">{formatNum(gasFeeNum)} {payCurrency}</span>
+                  <span className="font-mono font-semibold">{formatNum(gasFeeNum)} {quotedCustomerPaysAsset}</span>
+                </div>
+              )}
+
+              <div className="mb-4">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 block">
+                  Customer
+                </label>
+                <Popover open={customerPickerOpen} onOpenChange={setCustomerPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={customerPickerOpen}
+                      className="w-full justify-between h-11"
+                      disabled={loadingCustomers}
+                    >
+                      {selectedCustomer ? selectedCustomer.name : (loadingCustomers ? "Loading customers..." : "Search customer by name")}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                    <Command>
+                      <CommandInput placeholder="Type customer name..." />
+                      <CommandList>
+                        <CommandEmpty>No customer found.</CommandEmpty>
+                        <CommandGroup>
+                          {customers.map((customer) => (
+                            <CommandItem
+                              key={customer.id}
+                              value={customer.name}
+                              onSelect={() => {
+                                setCustomerId(customer.id);
+                                setCustomerPickerOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  customerId === customer.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {customer.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {quote && !quote.hasSufficientInventory && (
+                <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-2.5 text-sm text-destructive mb-4">
+                  Insufficient inventory for this quote.
                 </div>
               )}
 
@@ -577,12 +717,13 @@ const Exchange = () => {
                   Discard
                 </Button>
                 <Button
-                  onClick={handleSave}
+                  onClick={() => void handleSave()}
                   size="lg"
                   className="flex-1 h-12 text-base font-bold"
+                  disabled={savingExchange || !customerId}
                 >
                   <Check className="h-4 w-4 mr-2" />
-                  Save Exchange
+                  {savingExchange ? "Saving..." : "Save Exchange"}
                 </Button>
               </div>
             </>
@@ -610,33 +751,33 @@ const Exchange = () => {
 
             <div className="border border-gray-700 rounded-lg overflow-hidden mb-4">
               <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
-                <span className="text-xs text-gray-400">Customer Buys</span>
-                <span className="text-sm font-mono font-semibold">{formatNum(amountNum, 2)} {buyCurrency}</span>
+                <span className="text-xs text-gray-400">{mode === "wants" ? "Customer Wants To Buy" : "Customer Has"}</span>
+                <span className="text-sm font-mono font-semibold">{formatNum(primaryAmount)} {primaryAsset}</span>
               </div>
               <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
                 <span className="text-xs text-gray-400">Exchange Rate</span>
-                <span className="text-sm font-mono font-semibold">{((buyRateUsd) / (payRateUsd)).toFixed(8)}</span>
+                <span className="text-sm font-mono font-semibold">{formatNum(exchangeRate)}</span>
               </div>
               <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
                 <span className="text-xs text-gray-400">Subtotal</span>
-                <span className="text-sm font-mono font-semibold">{formatNum(baseCost, 8)} {payCurrency}</span>
+                <span className="text-sm font-mono font-semibold">{formatNum(subtotal)} {quotedCustomerPaysAsset}</span>
               </div>
               <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
                 <span className="text-xs text-gray-400">Fee ({feePercent}%)</span>
-                <span className="text-sm font-mono font-semibold">{formatNum(feeAmount, 8)} {payCurrency}</span>
+                <span className="text-sm font-mono font-semibold">{formatNum(feeAmount)} {quotedCustomerPaysAsset}</span>
               </div>
               {hasAdjustment && (
                 <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
                   <span className="text-xs text-gray-400">Adjustment</span>
-                  <span className="text-sm font-mono font-semibold">{adjustment > 0 ? "+" : ""}{formatNum(adjustment, 8)} {payCurrency}</span>
+                  <span className="text-sm font-mono font-semibold">{adjustment > 0 ? "+" : ""}{formatNum(adjustment)} {quotedCustomerPaysAsset}</span>
                 </div>
               )}
             </div>
 
             <div className="bg-[#161b22] border border-[#3b82f6]/30 rounded-lg p-4 text-center">
               <p className="text-xs text-gray-400 mb-1">Total Customer Pays</p>
-              <p className="text-2xl font-mono font-bold">{formatNum(effectiveTotal, 8)}</p>
-              <p className="text-sm font-bold text-gray-400">{payCurrency}</p>
+              <p className="text-2xl font-mono font-bold">{formatNum(effectiveTotal)}</p>
+              <p className="text-sm font-bold text-gray-400">{quotedCustomerPaysAsset}</p>
             </div>
           </div>
 

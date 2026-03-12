@@ -77,8 +77,7 @@ const Dashboard = () => {
           <p className="text-sm text-muted-foreground mt-1">Customer, vendor, owner and profit overview</p>
         </div>
         <Button
-          variant="outline"
-          size="sm"
+           size="sm"
           className="gap-2 self-start sm:self-auto"
           onClick={retry}
           disabled={loadingReports}

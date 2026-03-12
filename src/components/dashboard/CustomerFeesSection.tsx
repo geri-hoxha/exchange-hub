@@ -54,7 +54,7 @@ interface Props {
 
 export const CustomerFeesSection = ({ report, error, loading, onRetry }: Props) => {
   const stats = [
-    { label: "Exchanges", value: report?.totalExchanges.toLocaleString() ?? "0", icon: ArrowLeftRight },
+    { label: "Exchanges", value: formatNum(report?.totalExchanges ?? 0), icon: ArrowLeftRight },
     { label: "Fee (LCY)", value: formatNum(report?.totalFeeLcy ?? 0), icon: HandCoins },
     { label: "Receive (LCY)", value: formatNum(report?.totalReceiveAmountLcy ?? 0), icon: Wallet },
     { label: "Pay (LCY)", value: formatNum(report?.totalPayAmountLcy ?? 0), icon: Wallet },

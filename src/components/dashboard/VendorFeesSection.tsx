@@ -54,7 +54,7 @@ interface Props {
 
 export const VendorFeesSection = ({ report, error, loading, onRetry }: Props) => {
   const stats = [
-    { label: "Purchases", value: report?.totalPurchases.toLocaleString() ?? "0", icon: Building2 },
+    { label: "Purchases", value: formatNum(report?.totalPurchases ?? 0), icon: Building2 },
     { label: "Fee (LCY)", value: formatNum(report?.totalFeeLcy ?? 0), icon: HandCoins },
     { label: "Favorable (LCY)", value: formatNum(report?.totalFavorableDealsLcy ?? 0), icon: ArrowDownToLine },
     { label: "Extra Costs (LCY)", value: formatNum(report?.totalExtraCostsLcy ?? 0), icon: ArrowUpFromLine },
