@@ -110,7 +110,18 @@ export const ProfitSection = ({ report, error, loading, onRetry }: Props) => {
                 <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 10 }}>
                   <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v: number) => formatNum(v)} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={100} />
-                  <Tooltip formatter={(v: number) => formatNum(v)} />
+                  <Tooltip
+                    formatter={(v: number) => formatNum(v)}
+                    cursor={{ fill: "hsl(var(--muted) / 0.25)" }}
+                    contentStyle={{
+                      borderRadius: "0.5rem",
+                      border: "1px solid hsl(var(--border))",
+                      background: "hsl(var(--card))",
+                      color: "hsl(var(--foreground))",
+                    }}
+                    itemStyle={{ color: "hsl(var(--foreground))" }}
+                    labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+                  />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                     {barData.map((_, i) => (
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
