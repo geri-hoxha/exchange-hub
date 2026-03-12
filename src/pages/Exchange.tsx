@@ -532,16 +532,32 @@ const Exchange = () => {
                   </div>
                 </div>
 
-                {/* Row: Platform Fee */}
-                <div className="flex items-center justify-between px-4 py-3.5 border-b border-border last:border-b-0">
-                  <span className="text-sm text-muted-foreground">Platform Fee</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-primary font-semibold text-sm">{formatNum(feePercent)}%</span>
-                    <span className="text-muted-foreground">→</span>
-                    <span className="font-mono font-semibold text-sm">
-                      {formatNum(feeAmount)} {quotedCustomerPaysAsset}
-                    </span>
-                  </div>
+                {/* Row: Platform Fee — editable on click */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border last:border-b-0">
+                  <span className="text-sm text-muted-foreground">Platform Fee <span className="text-primary text-xs">({formatNum(feePercent)}%)</span></span>
+                  {editingFee ? (
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="number"
+                        value={feeOverride}
+                        onChange={(e) => setFeeOverride(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && setEditingFee(false)}
+                        className="w-28 h-8 text-right font-mono text-sm bg-background"
+                        autoFocus
+                      />
+                      <span className="text-xs text-muted-foreground">{quotedCustomerPaysAsset}</span>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingFee(false)} className="h-7 w-7 p-0">
+                        <Check className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setEditingFee(true); setFeeOverride(feeOverride || String(effectiveFeeAmount)); }} className="group flex items-center gap-1.5 cursor-pointer">
+                      <span className="font-mono font-semibold text-sm">
+                        {formatNum(effectiveFeeAmount)} {quotedCustomerPaysAsset}
+                      </span>
+                      <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Row: Gas Fee (only when buying fiat) */}
