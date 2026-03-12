@@ -184,6 +184,7 @@ const Exchange = () => {
   // Reset manual override when quote changes.
   useEffect(() => {
     setTotalOverride("");
+    setFeeOverride("");
   }, [quote?.id]);
 
   // When toggling between "wants" and "has", flip selected currencies.
