@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeftRight, ArrowRight, Check, X, Pencil, Bitcoin, DollarSign, Euro, PoundSterling, Coins, Download, Share2, RefreshCw, ChevronsUpDown } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, Check, X, Pencil, DollarSign, Euro, PoundSterling, Coins, Download, Share2, RefreshCw, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -23,17 +23,29 @@ import api from "@/lib/axios";
 import { getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
 import { getAllAssets, type Asset } from "@/services/assetsService";
- 
 
-// Color map for currency icons
+import btcIcon from "@/assets/crypto/btc.png";
+import ethIcon from "@/assets/crypto/eth.png";
+import usdtErc20Icon from "@/assets/crypto/usdt-erc20.png";
+import usdtTrc20Icon from "@/assets/crypto/usdt-trc20.png";
+import trxIcon from "@/assets/crypto/trx.png";
+
+// Image map for crypto currencies
+const cryptoImages: Record<string, string> = {
+  btc: btcIcon,
+  eth: ethIcon,
+  "usdt-erc20": usdtErc20Icon,
+  "usdt_erc20": usdtErc20Icon,
+  "usdterc20": usdtErc20Icon,
+  "usdt-trc20": usdtTrc20Icon,
+  "usdt_trc20": usdtTrc20Icon,
+  "usdttrc20": usdtTrc20Icon,
+  usdt: usdtErc20Icon,
+  trx: trxIcon,
+};
+
+// Color map for fiat currency icons
 const iconColors: Record<string, string> = {
-  btc: "text-orange-500 bg-orange-500/15",
-  eth: "text-indigo-400 bg-indigo-400/15",
-  usdt: "text-emerald-500 bg-emerald-500/15",
-  bnb: "text-yellow-500 bg-yellow-500/15",
-  sol: "text-purple-400 bg-purple-400/15",
-  xrp: "text-blue-400 bg-blue-400/15",
-  ada: "text-sky-400 bg-sky-400/15",
   usd: "text-green-500 bg-green-500/15",
   eur: "text-blue-500 bg-blue-500/15",
   gbp: "text-violet-500 bg-violet-500/15",
@@ -44,12 +56,16 @@ const iconColors: Record<string, string> = {
 const CurrencyIcon = ({ icon, size = "md" }: { icon: string; size?: "sm" | "md" }) => {
   const sizeClass = size === "sm" ? "h-7 w-7" : "h-9 w-9";
   const iconSize = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
-  const colors = iconColors[icon] || "text-muted-foreground bg-muted";
+  const imgSize = size === "sm" ? "h-7 w-7" : "h-9 w-9";
 
-  const IconComponent = () => {
+  const cryptoImg = cryptoImages[icon.toLowerCase()];
+  if (cryptoImg) {
+    return <img src={cryptoImg} alt={icon} className={`${imgSize} rounded-full object-contain shrink-0`} />;
+  }
+
+  const colors = iconColors[icon] || "text-muted-foreground bg-muted";
+  const FiatIcon = () => {
     switch (icon) {
-      case "btc": return <Bitcoin className={iconSize} />;
-      case "eth": return <Coins className={iconSize} />;
       case "usd": return <DollarSign className={iconSize} />;
       case "eur": return <Euro className={iconSize} />;
       case "gbp": return <PoundSterling className={iconSize} />;
@@ -61,7 +77,7 @@ const CurrencyIcon = ({ icon, size = "md" }: { icon: string; size?: "sm" | "md" 
 
   return (
     <div className={`${sizeClass} rounded-full flex items-center justify-center ${colors} shrink-0`}>
-      <IconComponent />
+      <FiatIcon />
     </div>
   );
 };
