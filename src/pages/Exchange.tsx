@@ -154,8 +154,8 @@ const Exchange = () => {
   const feePercent = quote?.platformFeeRate ?? 0;
   const feeAmount = quote?.platformFeeAmount ?? 0;
   const effectiveFeePercent = feeOverride !== "" ? (parseFloat(feeOverride) || 0) : feePercent;
-  const effectiveFeeAmount = feeOverride !== "" ? (subtotalBeforeFee * effectiveFeePercent / 100) : feeAmount;
-  const subtotalBeforeFee = quotedCustomerPaysAmount - feeAmount;
+  const subtotalBase = quotedCustomerPaysAmount - feeAmount;
+  const effectiveFeeAmount = feeOverride !== "" ? (subtotalBase * effectiveFeePercent / 100) : feeAmount;
   const subtotal = Math.max(quotedCustomerPaysAmount - effectiveFeeAmount, 0);
   const computedTotal = subtotal + effectiveFeeAmount;
 
