@@ -2,6 +2,7 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Landmark,
+  Crown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
