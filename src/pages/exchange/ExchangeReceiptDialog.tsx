@@ -53,72 +53,59 @@ const ExchangeReceiptDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Exchange Receipt</DialogTitle>
+          <DialogTitle className="text-base sm:text-lg">Exchange Receipt</DialogTitle>
         </DialogHeader>
 
         <div
           ref={receiptRef}
-          className={`bg-[#0d1117] text-white p-6 rounded-xl ${receiptImage ? "hidden" : ""}`}
+          className={`rounded-lg bg-slate-950 p-4 sm:rounded-xl sm:p-6 text-white ${receiptImage ? "hidden" : ""}`}
           style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
         >
-          <div className="text-center mb-5">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <ArrowLeftRight className="h-5 w-5 text-[#3b82f6]" />
-              <span className="text-lg font-bold">CryptoXchange</span>
+          <div className="mb-4 text-center sm:mb-5">
+            <div className="mb-1.5 flex items-center justify-center gap-2">
+              <ArrowLeftRight className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
+              <span className="text-base font-bold sm:text-lg">CryptoXchange</span>
             </div>
-            <p className="text-xs text-gray-400">Exchange Receipt</p>
-            <p className="text-xs text-gray-500 mt-1">{new Date().toLocaleString()}</p>
+            <p className="text-[11px] text-slate-400 sm:text-xs">Exchange Receipt</p>
+            <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">{new Date().toLocaleString()}</p>
           </div>
 
-          <div className="border border-gray-700 rounded-lg overflow-hidden mb-4">
-            <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
-              <span className="text-xs text-gray-400">{mode === "wants" ? "Customer Wants To Buy" : "Customer Has"}</span>
-              <span className="text-sm font-mono font-semibold">
-                {formatNum(primaryAmount)} {primaryAsset}
-              </span>
-            </div>
-            <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
-              <span className="text-xs text-gray-400">Exchange Rate</span>
-              <span className="text-sm font-mono font-semibold">{formatNum(exchangeRate)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
-              <span className="text-xs text-gray-400">Subtotal</span>
-              <span className="text-sm font-mono font-semibold">
-                {formatNum(subtotal)} {quoteSummaryAsset}
-              </span>
-            </div>
-            <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
-              <span className="text-xs text-gray-400">Fee ({feePercent}%)</span>
-              <span className="text-sm font-mono font-semibold">
-                {formatNum(feeAmount)} {quoteSummaryAsset}
-              </span>
-            </div>
+          <div className="mb-3 overflow-hidden rounded-lg border border-slate-700 sm:mb-4">
+            <ReceiptRow
+              label={mode === "wants" ? "Customer Wants To Buy" : "Customer Has"}
+              value={`${formatNum(primaryAmount)} ${primaryAsset}`}
+            />
+            <ReceiptRow label="Exchange Rate" value={formatNum(exchangeRate)} />
+            <ReceiptRow label="Subtotal" value={`${formatNum(subtotal)} ${quoteSummaryAsset}`} />
+            <ReceiptRow label={`Fee (${feePercent}%)`} value={`${formatNum(feeAmount)} ${quoteSummaryAsset}`} />
           </div>
 
-          <div className="bg-[#161b22] border border-[#3b82f6]/30 rounded-lg p-4 text-center">
-            <p className="text-xs text-gray-400 mb-1">{mode === "wants" ? "Total Customer Pays" : "Total Customer Gets"}</p>
-            <p className="text-2xl font-mono font-bold">{formatNum(effectiveTotal)}</p>
-            <p className="text-sm font-bold text-gray-400">{totalDisplayAsset}</p>
+          <div className="rounded-lg border border-primary/30 bg-slate-900 px-3 py-3 text-center sm:p-4">
+            <p className="mb-1 text-[11px] text-slate-400 sm:text-xs">
+              {mode === "wants" ? "Total Customer Pays" : "Total Customer Gets"}
+            </p>
+            <p className="font-mono text-xl font-bold sm:text-2xl">{formatNum(effectiveTotal)}</p>
+            <p className="text-xs font-bold text-slate-400 sm:text-sm">{totalDisplayAsset}</p>
           </div>
         </div>
 
         {receiptImage && (
-          <div className="rounded-lg overflow-hidden border border-border">
-            <img src={receiptImage} alt="Receipt preview" className="w-full" />
+          <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
+            <img src={receiptImage} alt="Receipt preview" className="max-h-[60vh] w-full object-contain" loading="lazy" />
           </div>
         )}
 
-        <div className="flex gap-3 mt-4">
-          <Button variant="outline" onClick={onDownload} disabled={!receiptImage} className="flex-1">
-            <Download className="h-4 w-4 mr-2" />
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:mt-4 sm:grid-cols-3 sm:gap-3">
+          <Button variant="outline" onClick={onDownload} disabled={!receiptImage} className="h-10 text-sm">
+            <Download className="mr-2 h-4 w-4" />
             Download
           </Button>
-          <Button variant="outline" onClick={onShare} disabled={!receiptImage} className="flex-1">
-            <Share2 className="h-4 w-4 mr-2" />
+          <Button variant="outline" onClick={onShare} disabled={!receiptImage} className="h-10 text-sm">
+            <Share2 className="mr-2 h-4 w-4" />
             Share
           </Button>
-          <Button onClick={onConfirm} className="flex-1">
-            <Check className="h-4 w-4 mr-2" />
+          <Button onClick={onConfirm} className="h-10 text-sm">
+            <Check className="mr-2 h-4 w-4" />
             Confirm
           </Button>
         </div>
@@ -126,5 +113,14 @@ const ExchangeReceiptDialog = ({
     </Dialog>
   );
 };
+
+function ReceiptRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 border-b border-slate-700 px-3 py-2.5 last:border-b-0 sm:px-4">
+      <span className="text-[11px] text-slate-400 sm:text-xs">{label}</span>
+      <span className="max-w-[58%] text-right font-mono text-xs font-semibold sm:text-sm">{value}</span>
+    </div>
+  );
+}
 
 export default ExchangeReceiptDialog;
