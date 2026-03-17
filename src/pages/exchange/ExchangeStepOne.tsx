@@ -75,10 +75,10 @@ const ExchangeStepOne = ({
         />
       </div>
 
-      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+      <label className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest">
         {mode === "wants" ? "Customer wants to buy" : "Customer has"}
       </label>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-1.5 sm:mt-2 mb-4 sm:mb-6">
         <Controller
           name="amount"
           control={control}
@@ -87,7 +87,7 @@ const ExchangeStepOne = ({
               type="number"
               value={field.value}
               onChange={(e) => field.onChange(e.target.value)}
-              className="h-12 bg-background font-mono text-base"
+              className="h-10 sm:h-12 bg-background font-mono text-sm sm:text-base"
               placeholder="Amount"
             />
           )}
