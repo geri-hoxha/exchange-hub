@@ -188,7 +188,7 @@ const ExchangeStepTwo = ({
       )}
 
       <div className="flex gap-2 sm:gap-3">
-        <Button variant="outline" onClick={onDiscard} size="lg" className="flex-1 h-10 sm:h-11 text-sm font-bold">
+        <Button variant="outline" onClick={onDiscard} size="lg" className="flex-1 h-10 sm:h-11 text-sm font-bold w-20 md:w-auto">
           <X className="h-4 w-4 mr-1.5" />
           Discard
         </Button>
