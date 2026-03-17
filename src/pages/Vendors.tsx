@@ -99,6 +99,8 @@ const emptyPurchaseForm = {
   referenceNo: "", note: "",
 };
 
+type PurchasePaymentAction = "receive" | "pay";
+
 const COL_COUNT = 8;
 
 const Vendors = () => {
@@ -127,6 +129,11 @@ const Vendors = () => {
   const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
   const [purchaseVendorId, setPurchaseVendorId] = useState<number | null>(null);
   const [purchaseForm, setPurchaseForm] = useState(emptyPurchaseForm);
+  const [purchasePaymentModalOpen, setPurchasePaymentModalOpen] = useState(false);
+  const [purchasePaymentAction, setPurchasePaymentAction] = useState<PurchasePaymentAction>("receive");
+  const [purchasePaymentAmount, setPurchasePaymentAmount] = useState("");
+  const [purchasePaymentTarget, setPurchasePaymentTarget] = useState<{ slipId: number; vendorId: number; asset: string } | null>(null);
+  const [processingPurchasePayment, setProcessingPurchasePayment] = useState(false);
 
   // Delete
   const [deleteVendorId, setDeleteVendorId] = useState<number | null>(null);
@@ -321,6 +328,56 @@ const Vendors = () => {
     }
   };
 
+  const openPurchasePaymentModal = (purchase: VendorPurchase, action: PurchasePaymentAction) => {
+    setPurchasePaymentTarget({
+      slipId: purchase.id,
+      vendorId: purchase.vendorId,
+      asset: purchase.asset,
+    });
+    setPurchasePaymentAction(action);
+    setPurchasePaymentAmount("");
+    setPurchasePaymentModalOpen(true);
+  };
+
+  const submitPurchasePayment = async () => {
+    if (!purchasePaymentTarget) return;
+
+    const amount = parseFloat(purchasePaymentAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Amount must be greater than 0");
+      return;
+    }
+
+    const endpoint = purchasePaymentAction === "receive" ? "receive-payments" : "pay-payments";
+
+    try {
+      setProcessingPurchasePayment(true);
+      await api.post(`/api/exchange-slips/${purchasePaymentTarget.slipId}/${endpoint}`, { amount });
+      await Promise.all([
+        fetchVendorPurchases(purchasePaymentTarget.vendorId),
+        fetchVendors(),
+      ]);
+      setPurchasePaymentModalOpen(false);
+      setPurchasePaymentTarget(null);
+      setPurchasePaymentAmount("");
+      toast.success(
+        purchasePaymentAction === "receive" ? "Payment received" : "Payment paid",
+        {
+          description: `${formatNum(amount)} ${purchasePaymentTarget.asset}`,
+        }
+      );
+    } catch (error) {
+      toast.error(
+        purchasePaymentAction === "receive" ? "Failed to receive payment" : "Failed to pay payment",
+        {
+          description: getApiErrorMessage(error),
+        }
+      );
+    } finally {
+      setProcessingPurchasePayment(false);
+    }
+  };
+
   const confirmDeletePurchase = async () => {
     if (!deletePurchase) return;
 
@@ -504,7 +561,7 @@ const Vendors = () => {
                                       <TableHead className="text-xs text-right">Cost (LCY)</TableHead>
                                       <TableHead className="text-xs text-right">Unit Cost</TableHead>
                                       <TableHead className="text-xs text-right">Fee (LCY)</TableHead>
-                                      <TableHead className="text-xs w-[50px]" />
+                                      <TableHead className="text-xs w-[210px] text-right">Actions</TableHead>
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
@@ -526,10 +583,30 @@ const Vendors = () => {
                                             {formatNum(p.vendorFeeLcy ?? 0)}
                                           </span>
                                         </TableCell>
-                                        <TableCell>
-                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeletePurchase({ id: p.id, vendorId: v.id })} disabled={deletingPurchase}>
+                                        <TableCell className="text-right">
+                                          <div className="flex items-center justify-end gap-1">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              className="h-7 px-2 text-[11px]"
+                                              onClick={() => openPurchasePaymentModal(p, "receive")}
+                                              disabled={processingPurchasePayment}
+                                            >
+                                              Receive
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              className="h-7 px-2 text-[11px]"
+                                              onClick={() => openPurchasePaymentModal(p, "pay")}
+                                              disabled={processingPurchasePayment}
+                                            >
+                                              Pay
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeletePurchase({ id: p.id, vendorId: v.id })} disabled={deletingPurchase || processingPurchasePayment}>
                                             <Trash2 className="h-3 w-3" />
-                                          </Button>
+                                            </Button>
+                                          </div>
                                         </TableCell>
                                       </TableRow>
                                     ))}
@@ -658,6 +735,54 @@ const Vendors = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setPurchaseModalOpen(false)} disabled={savingPurchase}>Cancel</Button>
             <Button onClick={() => void savePurchase()} disabled={!purchaseForm.asset.trim() || savingPurchase}>Add Purchase</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Purchase Payment Modal */}
+      <Dialog
+        open={purchasePaymentModalOpen}
+        onOpenChange={(open) => {
+          setPurchasePaymentModalOpen(open);
+          if (!open) {
+            setPurchasePaymentTarget(null);
+            setPurchasePaymentAmount("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{purchasePaymentAction === "receive" ? "Receive Payment" : "Pay Payment"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="purchase-payment-amount">Amount</Label>
+              <Input
+                id="purchase-payment-amount"
+                type="number"
+                min="0"
+                step="any"
+                placeholder="0.00"
+                className="h-11 text-base"
+                value={purchasePaymentAmount}
+                onChange={(e) => setPurchasePaymentAmount(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPurchasePaymentModalOpen(false)}
+              disabled={processingPurchasePayment}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void submitPurchasePayment()}
+              disabled={processingPurchasePayment || !purchasePaymentAmount.trim()}
+            >
+              {purchasePaymentAction === "receive" ? "Receive" : "Pay"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

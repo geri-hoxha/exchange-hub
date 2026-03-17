@@ -1,29 +1,29 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import type { ExchangeCustomer, SaveConfirmFormValues } from "./types";
 
 interface ExchangeSaveConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   quoteId: string;
+  actualReceivedAssetLabel?: string;
+  actualPaidAssetLabel?: string;
   loadingCustomers: boolean;
   customers: ExchangeCustomer[];
+  onSearchCustomers: (query: string) => void | Promise<void>;
   savingExchange: boolean;
   initialValues: SaveConfirmFormValues;
   onSubmit: (values: SaveConfirmFormValues) => void | Promise<void>;
@@ -33,8 +33,11 @@ const ExchangeSaveConfirmDialog = ({
   open,
   onOpenChange,
   quoteId,
+  actualReceivedAssetLabel,
+  actualPaidAssetLabel,
   loadingCustomers,
   customers,
+  onSearchCustomers,
   savingExchange,
   initialValues,
   onSubmit,
@@ -42,12 +45,26 @@ const ExchangeSaveConfirmDialog = ({
   const { control, handleSubmit, register, reset } = useForm<SaveConfirmFormValues>({
     defaultValues: initialValues,
   });
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const [selectedCustomerLabel, setSelectedCustomerLabel] = useState("");
 
   useEffect(() => {
     if (open) {
       reset(initialValues);
+      setCustomerSearch("");
+      setCustomerOpen(false);
+      setSelectedCustomerLabel("");
     }
-  }, [open, initialValues, reset]);
+  }, [open, initialValues, onSearchCustomers, reset]);
+
+  useEffect(() => {
+    if (!open) return;
+    const timeout = window.setTimeout(() => {
+      void onSearchCustomers(customerSearch.trim());
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [customerSearch, onSearchCustomers, open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -69,18 +86,58 @@ const ExchangeSaveConfirmDialog = ({
                 name="customerId"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="h-10 bg-background font-medium">
-                      <SelectValue placeholder={loadingCustomers ? "Loading customers..." : "Select customer"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.map((customer) => (
-                        <SelectItem key={customer.id} value={String(customer.id)}>
-                          {customer.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={customerOpen}
+                        className="h-10 w-full justify-between bg-background font-medium"
+                      >
+                        {field.value
+                          ? (customers.find((customer) => String(customer.id) === field.value)?.name ?? selectedCustomerLabel)
+                          : "Search and select customer"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                      <Command shouldFilter={false}>
+                        <CommandInput
+                          placeholder="Type customer name..."
+                          value={customerSearch}
+                          onValueChange={setCustomerSearch}
+                        />
+                        <CommandList>
+                          <CommandEmpty>
+                            {loadingCustomers ? "Searching..." : "No customer found."}
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {customers.map((customer) => (
+                              <CommandItem
+                                key={customer.id}
+                                value={customer.name}
+                                onSelect={() => {
+                                  field.onChange(String(customer.id));
+                                  setSelectedCustomerLabel(customer.name);
+                                  setCustomerOpen(false);
+                                  setCustomerSearch(customer.name);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    String(customer.id) === field.value ? "opacity-100" : "opacity-0",
+                                  )}
+                                />
+                                {customer.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 )}
               />
             </div>
@@ -106,7 +163,9 @@ const ExchangeSaveConfirmDialog = ({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Actual Received</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                  {`Actual Received${actualReceivedAssetLabel ? ` (${actualReceivedAssetLabel})` : ""}`}
+                </label>
                 <Input
                   type="number"
                   {...register("actualReceivedAmount")}
@@ -114,7 +173,9 @@ const ExchangeSaveConfirmDialog = ({
                 />
               </div>
               <div className="grid gap-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Actual Paid</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                  {`Actual Paid${actualPaidAssetLabel ? ` (${actualPaidAssetLabel})` : ""}`}
+                </label>
                 <Input
                   type="number"
                   {...register("actualPaidAmount")}

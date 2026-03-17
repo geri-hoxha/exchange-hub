@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { ArrowLeftRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -90,19 +90,17 @@ const Exchange = () => {
     getCurrencies()
   }, []);
 
-  useEffect(() => {
-    void getCustomers();
-  }, []);
-
   const getCurrencies = async () => {
     const response = await getAllAssets();
     setCurrencies(response as ExchangeAsset[]);
   };
 
-  const getCustomers = async () => {
+  const getCustomers = useCallback(async (query: string) => {
     try {
       setLoadingCustomers(true);
-      const response = await api.get<{ items?: ExchangeCustomer[] } | ExchangeCustomer[]>("/api/customers");
+      const response = await api.get<{ items?: ExchangeCustomer[] } | ExchangeCustomer[]>("/api/customers", {
+        params: query.trim() ? { search: query.trim() } : undefined,
+      });
       const items = Array.isArray(response.data) ? response.data : (response.data.items ?? []);
       setCustomers(items.map((customer) => ({ id: customer.id, name: customer.name })));
     } catch {
@@ -110,7 +108,7 @@ const Exchange = () => {
     } finally {
       setLoadingCustomers(false);
     }
-  };
+  }, []);
 
 
   const buyCurrencyData = currencies.find((c) => c.code === buyCurrency);
@@ -121,6 +119,8 @@ const Exchange = () => {
   const quotedCustomerReceivesAmount = quote?.customerReceivesAmount ?? 0;
   const quotedCustomerPaysAsset = quote?.customerPaysAsset ?? payCurrency;
   const quotedCustomerReceivesAsset = quote?.customerReceivesAsset ?? buyCurrency;
+  const quotedCustomerPaysAssetType = currencies.find((c) => c.code === quotedCustomerPaysAsset)?.type;
+  const quotedCustomerReceivesAssetType = currencies.find((c) => c.code === quotedCustomerReceivesAsset)?.type;
 
   const exchangeRate = quote?.agreedRate ?? 0;
   const feePercent = quote?.platformFeeRate ?? 0;
@@ -245,8 +245,8 @@ const Exchange = () => {
       occurredAt: toDateTimeLocalValue(new Date()),
       referenceNo: "",
       note: "",
-      actualReceivedAmount: amount || "0",
-      actualPaidAmount: amount || "0",
+      actualReceivedAmount: "0",
+      actualPaidAmount: "0",
     });
     setShowSaveConfirm(true);
   };
@@ -455,8 +455,11 @@ const Exchange = () => {
         open={showSaveConfirm}
         onOpenChange={setShowSaveConfirm}
         quoteId={quote?.id ?? ""}
+        actualReceivedAssetLabel={`${quotedCustomerReceivesAsset}${quotedCustomerReceivesAssetType ? ` • ${quotedCustomerReceivesAssetType}` : ""}`}
+        actualPaidAssetLabel={`${quotedCustomerPaysAsset}${quotedCustomerPaysAssetType ? ` • ${quotedCustomerPaysAssetType}` : ""}`}
         loadingCustomers={loadingCustomers}
         customers={customers}
+        onSearchCustomers={getCustomers}
         savingExchange={savingExchange}
         initialValues={saveConfirmInitialValues}
         onSubmit={handleSave}
