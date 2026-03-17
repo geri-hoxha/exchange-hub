@@ -211,8 +211,9 @@ const ExchangeSaveConfirmDialog = ({
                 </label>
                 <Input
                   type="datetime-local"
+                  step={60}
                   {...register("occurredAt")}
-                  className="!h-8 sm:h-9 md:!h-11 font-mono text-[10px] sm:text-xs md:text-sm"
+                  className="h-10 sm:h-9 md:h-11 font-mono text-base sm:text-xs md:text-sm"
                 />
               </div>
             </div>
