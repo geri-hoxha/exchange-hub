@@ -195,7 +195,7 @@ const ExchangeSaveConfirmDialog = ({
 
             {/* Final Amount + Occurred At */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-              <div className="grid gap-1">
+              <div className="col-span-2 md:col-span-1">
                 <label className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest">
                   Final Amount
                 </label>
@@ -205,14 +205,14 @@ const ExchangeSaveConfirmDialog = ({
                   className="h-8 sm:h-9 font-mono text-xs sm:text-sm"
                 />
               </div>
-              <div className="grid gap-1">
+              <div className=" col-span-2 md:col-span-1">
                 <label className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest">
                   Occurred At
                 </label>
                 <Input
                   type="datetime-local"
                   {...register("occurredAt")}
-                  className="!h-8 sm:h-9 font-mono text-[10px] sm:text-xs"
+                  className="h-8 sm:h-9 font-mono text-[10px] sm:text-xs"
                 />
               </div>
             </div>
