@@ -93,7 +93,7 @@ const ExchangeSaveConfirmDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-lg"
+        className="sm:max-w-xl md:max-w-2xl"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader>
@@ -103,22 +103,22 @@ const ExchangeSaveConfirmDialog = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="grid gap-2.5 sm:gap-3">
+          <div className="grid gap-2.5 sm:gap-3 md:gap-4">
             {/* Quote ID */}
-            <div className="grid gap-1">
-              <label className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+            <div className="grid gap-1 md:gap-1.5">
+              <label className="text-[10px] sm:text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-widest">
                 Quote Id
               </label>
               <Input
                 value={quoteId}
                 readOnly
-                className="h-8 sm:h-9 font-mono text-[10px] sm:text-xs"
+                className="h-8 sm:h-9 md:h-11 font-mono text-[10px] sm:text-xs md:text-sm"
               />
             </div>
 
             {/* Customer */}
-            <div className="grid gap-1">
-              <label className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+            <div className="grid gap-1 md:gap-1.5">
+              <label className="text-[10px] sm:text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-widest">
                 Customer
               </label>
               <Controller
@@ -132,7 +132,7 @@ const ExchangeSaveConfirmDialog = ({
                         variant="outline"
                         role="combobox"
                         aria-expanded={customerOpen}
-                        className="h-8 sm:h-9 w-full justify-between bg-background font-medium text-xs sm:text-sm"
+                        className="h-8 sm:h-9 md:h-11 w-full justify-between bg-background font-medium text-xs sm:text-sm md:text-base"
                       >
                         <span className="truncate">
                           {field.value
@@ -142,7 +142,7 @@ const ExchangeSaveConfirmDialog = ({
                               )?.name ?? selectedCustomerLabel)
                             : "Select customer"}
                         </span>
-                        <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+                        <ChevronsUpDown className="ml-1 h-3.5 w-3.5 md:h-4 md:w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent
@@ -194,39 +194,39 @@ const ExchangeSaveConfirmDialog = ({
             </div>
 
             {/* Final Amount + Occurred At */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-              <div className="col-span-2 md:col-span-1">
-                <label className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 md:gap-4">
+              <div className="col-span-2 md:col-span-1 md:gap-1.5">
+                <label className="text-[10px] sm:text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-widest">
                   Final Amount
                 </label>
                 <Input
                   type="number"
                   {...register("finalAmount")}
-                  className="h-8 sm:h-9 font-mono text-xs sm:text-sm"
+                  className="h-8 sm:h-9 md:h-11 font-mono text-xs sm:text-sm md:text-base"
                 />
               </div>
-              <div className=" col-span-2 md:col-span-1">
-                <label className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+              <div className="col-span-2 md:col-span-1 md:gap-1.5">
+                <label className="text-[10px] sm:text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-widest">
                   Occurred At
                 </label>
                 <Input
                   type="datetime-local"
                   {...register("occurredAt")}
-                  className="h-8 sm:h-9 font-mono text-[10px] sm:text-xs"
+                  className="!h-8 sm:h-9 md:!h-11 font-mono text-[10px] sm:text-xs md:text-sm"
                 />
               </div>
             </div>
 
             {/* Actual Received + Paid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-              <div className="grid gap-1 relative">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 md:gap-4">
+              <div className="grid gap-1 md:gap-1.5 relative">
                 <div className="flex items-center justify-between gap-2">
-                  <label className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest leading-tight">
+                  <label className="text-[10px] sm:text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-widest leading-tight">
                     {`Received${actualReceivedAssetLabel ? ` (${actualReceivedAssetLabel})` : ""}`}
                   </label>
                   <Button
                     type="button"
-                    className="h-6 px-2 rounded-sm text-[10px] sm:text-xs absolute right-1 bottom-0 mb-1 md:mb-1.5"
+                    className="h-6 md:h-7 px-2 md:px-3 rounded-sm text-[10px] sm:text-xs md:text-sm absolute right-1 bottom-0 mb-1 md:mb-1.5"
                     onClick={() =>
                       setValue("actualReceivedAmount", String(receivedLimit), {
                         shouldDirty: true,
@@ -256,17 +256,17 @@ const ExchangeSaveConfirmDialog = ({
                       }
                     },
                   })}
-                  className="h-8 sm:h-9 font-mono text-xs sm:text-sm"
+                  className="h-8 sm:h-9 md:h-11 font-mono text-xs sm:text-sm md:text-base"
                 />
               </div>
-              <div className="grid gap-1 relative">
+              <div className="grid gap-1 md:gap-1.5 relative">
                 <div className="flex items-center justify-between gap-2">
-                  <label className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest leading-tight">
+                  <label className="text-[10px] sm:text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-widest leading-tight">
                     {`Paid${actualPaidAssetLabel ? ` (${actualPaidAssetLabel})` : ""}`}
                   </label>
                   <Button
                     type="button"
-                    className="h-6 px-2 rounded-sm text-[10px] sm:text-xs absolute right-1 bottom-0 mb-1 md:mb-1.5"
+                    className="h-6 md:h-7 px-2 md:px-3 rounded-sm text-[10px] sm:text-xs md:text-sm absolute right-1 bottom-0 mb-1 md:mb-1.5"
                     onClick={() =>
                       setValue("actualPaidAmount", String(paidLimit), {
                         shouldDirty: true,
@@ -293,49 +293,49 @@ const ExchangeSaveConfirmDialog = ({
                       }
                     },
                   })}
-                  className="h-8 sm:h-9 font-mono text-xs sm:text-sm"
+                  className="h-8 sm:h-9 md:h-11 font-mono text-xs sm:text-sm md:text-base"
                 />
               </div>
             </div>
 
             {/* Reference No */}
-            <div className="grid gap-1">
-              <label className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+            <div className="grid gap-1 md:gap-1.5">
+              <label className="text-[10px] sm:text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-widest">
                 Reference No
               </label>
               <Input
                 {...register("referenceNo")}
-                className="h-8 sm:h-9 font-mono text-xs sm:text-sm"
+                className="h-8 sm:h-9 md:h-11 font-mono text-xs sm:text-sm md:text-base"
                 placeholder="Optional"
               />
             </div>
 
             {/* Note */}
-            <div className="grid gap-1">
-              <label className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+            <div className="grid gap-1 md:gap-1.5">
+              <label className="text-[10px] sm:text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-widest">
                 Note
               </label>
               <Textarea
                 {...register("note")}
-                className="min-h-[60px] sm:min-h-[84px] resize-y text-xs sm:text-sm"
+                className="min-h-[60px] sm:min-h-[84px] md:min-h-[100px] resize-y text-xs sm:text-sm md:text-base"
                 placeholder="Optional"
               />
             </div>
           </div>
 
-          <div className="flex gap-2 sm:gap-3 mt-3 sm:mt-4">
+          <div className="flex gap-2 sm:gap-3 mt-3 sm:mt-4 md:mt-5">
             <Button
               variant="outline"
               type="button"
               onClick={() => onOpenChange(false)}
-              className="flex-1 h-9 sm:h-10 text-xs sm:text-sm"
+              className="flex-1 h-9 sm:h-10 md:h-11 text-xs sm:text-sm md:text-base"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={savingExchange}
-              className="flex-1 h-9 sm:h-10 text-xs sm:text-sm"
+              className="flex-1 h-9 sm:h-10 md:h-11 text-xs sm:text-sm md:text-base"
             >
               {savingExchange ? "Saving..." : "Confirm & Save"}
             </Button>
