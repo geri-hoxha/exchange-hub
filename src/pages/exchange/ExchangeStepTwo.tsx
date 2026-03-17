@@ -121,7 +121,7 @@ const ExchangeStepTwo = ({
               className="group flex items-center gap-1 sm:gap-1.5 cursor-pointer"
             >
               <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-              <span className="text-primary font-semibold text-xs sm:text-sm">{formatNum(effectiveFeePercent)}%</span>
+              <span className="text-primary font-semibold text-xs sm:text-sm">{formatNum(effectiveFeePercent * 100)}%</span>
               <span className="text-muted-foreground text-xs">→</span>
               <span className="font-mono font-semibold text-xs sm:text-sm flex items-center gap-1">
                 <CurrencyIcon code={quoteSummaryAsset} /> {formatNum(effectiveFeeAmount)}
@@ -144,7 +144,7 @@ const ExchangeStepTwo = ({
       </div>
 
       {/* Total */}
-      <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 sm:px-4 py-3 mb-3">
+      <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 sm:px-4 py-3 my-4 md:my-6">
         {editingTotal ? (
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <span className="text-xs sm:text-sm font-semibold whitespace-nowrap">

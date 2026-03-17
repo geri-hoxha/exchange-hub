@@ -95,12 +95,10 @@ const Exchange = () => {
     setCurrencies(response as ExchangeAsset[]);
   };
 
-  const getCustomers = useCallback(async (query: string) => {
+  const getCustomers = useCallback(async () => {
     try {
       setLoadingCustomers(true);
-      const response = await api.get<{ items?: ExchangeCustomer[] } | ExchangeCustomer[]>("/api/customers", {
-        params: query.trim() ? { search: query.trim() } : undefined,
-      });
+      const response = await api.get<{ items?: ExchangeCustomer[] } | ExchangeCustomer[]>("/api/customers");
       const items = Array.isArray(response.data) ? response.data : (response.data.items ?? []);
       setCustomers(items.map((customer) => ({ id: customer.id, name: customer.name })));
     } catch {
@@ -239,14 +237,17 @@ const Exchange = () => {
 
   const openSaveConfirmation = () => {
     if (!quote?.id) return;
+    if (customers.length === 0) {
+      void getCustomers();
+    }
     setSaveConfirmInitialValues({
       customerId: "",
       finalAmount: String(effectiveTotal),
       occurredAt: toDateTimeLocalValue(new Date()),
       referenceNo: "",
       note: "",
-      actualReceivedAmount: "0",
-      actualPaidAmount: "0",
+      actualReceivedAmount: "",
+      actualPaidAmount: "",
     });
     setShowSaveConfirm(true);
   };
@@ -457,9 +458,10 @@ const Exchange = () => {
         quoteId={quote?.id ?? ""}
         actualReceivedAssetLabel={`${quotedCustomerReceivesAsset}${quotedCustomerReceivesAssetType ? ` • ${quotedCustomerReceivesAssetType}` : ""}`}
         actualPaidAssetLabel={`${quotedCustomerPaysAsset}${quotedCustomerPaysAssetType ? ` • ${quotedCustomerPaysAssetType}` : ""}`}
+        actualReceivedMax={quotedCustomerPaysAmount}
+        actualPaidMax={quotedCustomerReceivesAmount}
         loadingCustomers={loadingCustomers}
         customers={customers}
-        onSearchCustomers={getCustomers}
         savingExchange={savingExchange}
         initialValues={saveConfirmInitialValues}
         onSubmit={handleSave}
