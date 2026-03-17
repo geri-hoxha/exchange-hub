@@ -44,7 +44,7 @@ const ExchangeStepOne = ({
 
   return (
     <>
-      <div className="flex rounded-lg bg-muted p-1 mb-6">
+      <div className="flex rounded-lg bg-muted p-1 mb-4 sm:mb-6">
         <Controller
           name="mode"
           control={control}
