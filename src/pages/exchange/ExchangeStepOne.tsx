@@ -44,7 +44,7 @@ const ExchangeStepOne = ({
 
   return (
     <>
-      <div className="flex rounded-lg bg-muted p-1 mb-6">
+      <div className="flex rounded-lg bg-muted p-1 mb-4 sm:mb-6">
         <Controller
           name="mode"
           control={control}
@@ -75,10 +75,10 @@ const ExchangeStepOne = ({
         />
       </div>
 
-      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+      <label className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest">
         {mode === "wants" ? "Customer wants to buy" : "Customer has"}
       </label>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-1.5 sm:mt-2 mb-4 sm:mb-6">
         <Controller
           name="amount"
           control={control}
@@ -87,7 +87,7 @@ const ExchangeStepOne = ({
               type="number"
               value={field.value}
               onChange={(e) => field.onChange(e.target.value)}
-              className="h-12 bg-background font-mono text-base"
+              className="h-10 sm:h-12 bg-background font-mono text-sm sm:text-base"
               placeholder="Amount"
             />
           )}
@@ -97,7 +97,7 @@ const ExchangeStepOne = ({
           control={control}
           render={({ field }) => (
             <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger className="h-12 bg-background font-medium">
+              <SelectTrigger className="h-10 sm:h-12 bg-background font-medium text-sm">
                 <SelectValue placeholder="Currency" />
               </SelectTrigger>
               <SelectContent>
@@ -115,25 +115,25 @@ const ExchangeStepOne = ({
         />
       </div>
 
-      <div className="flex items-center gap-3 my-6">
+      <div className="flex items-center gap-2 sm:gap-3 my-4 sm:my-6">
         <div className="flex-1 h-px bg-border" />
-        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-          <ArrowRight className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+          <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           {mode === "wants" ? "PAYING WITH" : "WANTS TO GET"}
         </div>
         <div className="flex-1 h-px bg-border" />
       </div>
 
-      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+      <label className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest">
         {mode === "wants" ? "Payment currency" : "Target currency"}
       </label>
-      <div className="mt-2 mb-8">
+      <div className="mt-1.5 sm:mt-2 mb-6 sm:mb-8">
         <Controller
           name="payCurrency"
           control={control}
           render={({ field }) => (
             <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger className="h-12 bg-background font-medium">
+              <SelectTrigger className="h-10 sm:h-12 bg-background font-medium text-sm">
                 <SelectValue placeholder="Select payment currency" />
               </SelectTrigger>
               <SelectContent>
@@ -150,7 +150,7 @@ const ExchangeStepOne = ({
       <Button
         onClick={onNext}
         size="lg"
-        className="w-full h-12 text-base font-bold"
+        className="w-full h-10 sm:h-12 text-sm sm:text-base font-bold"
         disabled={!canProceed || fetchingQuote}
       >
         {fetchingQuote ? "Getting Quote..." : "Next"}

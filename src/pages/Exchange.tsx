@@ -362,35 +362,35 @@ const Exchange = () => {
   return (
     <div>
       {/* Hero */}
-      <div className="dark:text-nav-foreground bg-transparent text-foreground -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-6 pb-8 mb-2 dark:-mt-8 dark:pt-12 dark:pb-36 dark:mb-[-7rem]">
+      <div className="dark:text-nav-foreground bg-transparent text-foreground -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-6 sm:pb-8 mb-2 dark:-mt-8 dark:pt-8 sm:dark:pt-12 dark:pb-28 sm:dark:pb-36 dark:mb-[-5rem] sm:dark:mb-[-7rem]">
         <div className="max-w-2xl mx-auto text-center">
-          <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-primary/20 mb-4">
-            <ArrowLeftRight className="h-6 w-6 text-primary" />
+          <div className="inline-flex items-center justify-center h-10 w-10 sm:h-14 sm:w-14 rounded-xl sm:rounded-2xl bg-primary/20 mb-3 sm:mb-4">
+            <ArrowLeftRight className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold mb-2 tracking-tight">Exchange Recorder</h1>
-          <p className="text-muted-foreground dark:text-nav-foreground/50 text-sm">Record customer currency exchanges</p>
+          <h1 className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2 tracking-tight">Exchange Recorder</h1>
+          <p className="text-muted-foreground dark:text-nav-foreground/50 text-xs sm:text-sm">Record customer currency exchanges</p>
         </div>
       </div>
 
       {/* Refresh bar */}
-      <div className="max-w-2xl mx-auto flex items-center justify-between mb-4">
-        <p className="text-xs text-muted-foreground">
-          Rates updated: <span className="font-mono">{lastUpdated.toLocaleTimeString()}</span>
+      <div className="max-w-2xl mx-auto flex items-center justify-between mb-3 sm:mb-4">
+        <p className="text-[10px] sm:text-xs text-muted-foreground">
+          Rates: <span className="font-mono">{lastUpdated.toLocaleTimeString()}</span>
         </p>
         <Button
           size="sm"
           onClick={handleRefreshRates}
           disabled={refreshing}
-          className="text-xs gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90"
+          className="text-[10px] sm:text-xs gap-1 sm:gap-1.5 h-7 sm:h-8 px-2 sm:px-3 bg-accent text-accent-foreground hover:bg-accent/90"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-          Refresh Rates
+          <RefreshCw className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          Refresh
         </Button>
       </div>
 
       {/* Card */}
       <div className="max-w-2xl mx-auto">
-        <div className="bg-card rounded-2xl shadow-xl border border-border p-6 sm:p-8">
+        <div className="bg-card rounded-xl sm:rounded-2xl shadow-xl border border-border p-4 sm:p-6 md:p-8">
           {/* Steps indicator */}
           <div className="flex items-center gap-3 mb-6">
             <div className={`flex items-center gap-2 text-sm font-semibold ${step >= 1 ? "text-primary" : "text-muted-foreground"}`}>
