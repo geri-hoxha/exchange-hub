@@ -133,7 +133,7 @@ const ExchangeStepOne = ({
           control={control}
           render={({ field }) => (
             <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger className="h-12 bg-background font-medium">
+              <SelectTrigger className="h-10 sm:h-12 bg-background font-medium text-sm">
                 <SelectValue placeholder="Select payment currency" />
               </SelectTrigger>
               <SelectContent>
