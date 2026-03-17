@@ -150,7 +150,7 @@ const ExchangeStepOne = ({
       <Button
         onClick={onNext}
         size="lg"
-        className="w-full h-12 text-base font-bold"
+        className="w-full h-10 sm:h-12 text-sm sm:text-base font-bold"
         disabled={!canProceed || fetchingQuote}
       >
         {fetchingQuote ? "Getting Quote..." : "Next"}
