@@ -93,7 +93,7 @@ const ExchangeSaveConfirmDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-lg"
+        className="sm:max-w-xl md:max-w-2xl"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader>
