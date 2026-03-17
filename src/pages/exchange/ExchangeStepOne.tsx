@@ -115,19 +115,19 @@ const ExchangeStepOne = ({
         />
       </div>
 
-      <div className="flex items-center gap-3 my-6">
+      <div className="flex items-center gap-2 sm:gap-3 my-4 sm:my-6">
         <div className="flex-1 h-px bg-border" />
-        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-          <ArrowRight className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+          <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           {mode === "wants" ? "PAYING WITH" : "WANTS TO GET"}
         </div>
         <div className="flex-1 h-px bg-border" />
       </div>
 
-      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+      <label className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest">
         {mode === "wants" ? "Payment currency" : "Target currency"}
       </label>
-      <div className="mt-2 mb-8">
+      <div className="mt-1.5 sm:mt-2 mb-6 sm:mb-8">
         <Controller
           name="payCurrency"
           control={control}
