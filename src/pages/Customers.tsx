@@ -64,7 +64,7 @@ const formatNum = (n: number) =>
 const BalanceList = ({ items, variant }: { items: BalanceEntry[]; variant: "owe" | "owed" }) => {
   if (!items.length) return <span className="text-muted-foreground text-xs">—</span>;
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 w-max flex items-center gap-2">
       {items.map((b, i) => (
         <Badge
           key={i}
@@ -306,7 +306,7 @@ const Customers = () => {
               <TableHead className="text-right">Received (LCY)</TableHead>
               <TableHead className="text-right">Paid (LCY)</TableHead>
               <TableHead className="text-right">Net Fee (LCY)</TableHead>
-              <TableHead>They Owe Us</TableHead>
+              <TableHead >They Owe Us</TableHead>
               <TableHead>We Owe Them</TableHead>
               <TableHead className="text-right">Last Trade</TableHead>
               <TableHead className="w-[80px]" />
@@ -342,7 +342,7 @@ const Customers = () => {
                       {formatNum(c.netFeeLcy)}
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell >
                     <BalanceList items={c.theyOweUs} variant="owe" />
                   </TableCell>
                   <TableCell>

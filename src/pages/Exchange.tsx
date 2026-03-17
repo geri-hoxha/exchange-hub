@@ -1,86 +1,59 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeftRight, ArrowRight, Check, X, Pencil, Download, Share2, RefreshCw, ChevronsUpDown } from "lucide-react";
+import { useForm, useWatch } from "react-hook-form";
+import { ArrowLeftRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 import { toPng } from "html-to-image";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import api from "@/lib/axios";
 import { getApiErrorMessage } from "@/lib/apiError";
-import { cn } from "@/lib/utils";
-import { CurrencyIcon } from "@/components/CurrencyIcon";
-import { getAllAssets, type Asset } from "@/services/assetsService";
-
- 
- 
- 
-type ExchangeAsset = Asset & {
-  symbol?: string;
-  icon?: string;
-};
-
-interface ExchangeQuoteRequest {
-  customerPaysAsset: string;
-  customerReceivesAsset: string;
-  customerPaysAmount: number;
-  customerReceivesAmount: number;
-}
-
-interface ExchangeQuoteResponse {
-  id: string;
-  inputMode: string;
-  customerPaysAsset: string;
-  customerPaysAmount: number;
-  customerPaysAmountLcy: number;
-  customerReceivesAsset: string;
-  customerReceivesAmount: number;
-  customerReceivesAmountLcy: number;
-  agreedRate: number;
-  feeLcy: number;
-  marginFeeRate: number;
-  platformFeeRate: number;
-  marginFeeAmount: number;
-  platformFeeAmount: number;
-  hasSufficientInventory: boolean;
-}
-
-interface ExchangeCustomer {
-  id: number;
-  name: string;
-}
+import { getAllAssets } from "@/services/assetsService";
+import ExchangeStepOne from "./exchange/ExchangeStepOne";
+import ExchangeStepTwo from "./exchange/ExchangeStepTwo";
+import ExchangeSaveConfirmDialog from "./exchange/ExchangeSaveConfirmDialog";
+import ExchangeReceiptDialog from "./exchange/ExchangeReceiptDialog";
+import type {
+  ExchangeAsset,
+  ExchangeCustomer,
+  ExchangeMode,
+  ExchangeQuoteRequest,
+  ExchangeQuoteResponse,
+  ExchangeStepOneFormValues,
+  SaveConfirmFormValues,
+} from "./exchange/types";
 
 const Exchange = () => {
   // Step 1
-  const [mode, setMode] = useState<"wants" | "has">("wants");
-  const [amount, setAmount] = useState("");
-  const [buyCurrency, setBuyCurrency] = useState("");
-  const [payCurrency, setPayCurrency] = useState("");
-  const previousModeRef = useRef<"wants" | "has">("wants");
+  const { control: stepOneControl, setValue: setStepOneValue, reset: resetStepOne } = useForm<ExchangeStepOneFormValues>({
+    defaultValues: {
+      mode: "wants",
+      amount: "",
+      buyCurrency: "",
+      payCurrency: "",
+    },
+  });
+  const mode = useWatch({ control: stepOneControl, name: "mode" }) ?? "wants";
+  const amount = useWatch({ control: stepOneControl, name: "amount" }) ?? "";
+  const buyCurrency = useWatch({ control: stepOneControl, name: "buyCurrency" }) ?? "";
+  const payCurrency = useWatch({ control: stepOneControl, name: "payCurrency" }) ?? "";
+  const previousModeRef = useRef<ExchangeMode>("wants");
 
   // Step 2
   const [step, setStep] = useState<1 | 2>(1);
-  const [gasFee, setGasFee] = useState("");
   const [quote, setQuote] = useState<ExchangeQuoteResponse | null>(null);
   const [fetchingQuote, setFetchingQuote] = useState(false);
   const [savingExchange, setSavingExchange] = useState(false);
   const [customers, setCustomers] = useState<ExchangeCustomer[]>([]);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
-  const [customerId, setCustomerId] = useState<number | null>(null);
-  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [saveConfirmInitialValues, setSaveConfirmInitialValues] = useState<SaveConfirmFormValues>({
+    customerId: "",
+    finalAmount: "",
+    occurredAt: "",
+    referenceNo: "",
+    note: "",
+    actualReceivedAmount: "",
+    actualPaidAmount: "",
+  });
 
   // Editable total
   const [editingTotal, setEditingTotal] = useState(false);
@@ -101,13 +74,13 @@ const Exchange = () => {
 
   const handleRefreshRates = () => {
     setRefreshing(true);
-    // Simulate rate refresh — replace with real API call later
-    setTimeout(() => {
+    void api.post("/api/assets/rates/refresh")
+      .finally(() => {
       setLastUpdated(new Date());
       setRefreshing(false);
       setTotalOverride("");
       toast.success("Rates refreshed");
-    }, 600);
+    });
   };
 
   // currencies
@@ -149,25 +122,28 @@ const Exchange = () => {
   const quotedCustomerPaysAsset = quote?.customerPaysAsset ?? payCurrency;
   const quotedCustomerReceivesAsset = quote?.customerReceivesAsset ?? buyCurrency;
 
-  const isBuyingFiat = buyCurrencyData?.type === "fiat";
   const exchangeRate = quote?.agreedRate ?? 0;
   const feePercent = quote?.platformFeeRate ?? 0;
   const feeAmount = quote?.platformFeeAmount ?? 0;
   const effectiveFeePercent = feeOverride !== "" ? (parseFloat(feeOverride) || 0) : feePercent;
-  const subtotalBase = quotedCustomerPaysAmount - feeAmount;
+  const subtotalBase =
+    mode === "wants"
+      ? Math.max(quotedCustomerPaysAmount - feeAmount, 0)
+      : quotedCustomerReceivesAmount + feeAmount;
   const effectiveFeeAmount = feeOverride !== "" ? (subtotalBase * effectiveFeePercent / 100) : feeAmount;
-  const subtotal = Math.max(quotedCustomerPaysAmount - effectiveFeeAmount, 0);
-  const computedTotal = subtotal + effectiveFeeAmount;
+  const subtotal = subtotalBase;
+  const computedDisplayTotal =
+    mode === "wants"
+      ? subtotal + effectiveFeeAmount
+      : Math.max(subtotal - effectiveFeeAmount, 0);
+  const totalDisplayAsset = mode === "wants" ? quotedCustomerPaysAsset : quotedCustomerReceivesAsset;
 
   const primaryAsset = mode === "wants" ? quotedCustomerReceivesAsset : quotedCustomerPaysAsset;
   const primaryAmount = mode === "wants" ? quotedCustomerReceivesAmount : quotedCustomerPaysAmount;
-  const primaryCurrencyData = currencies.find((c) => c.code === primaryAsset);
-  const quotedPayCurrencyData = currencies.find((c) => c.code === quotedCustomerPaysAsset);
-  const gasFeeNum = parseFloat(gasFee) || 0;
 
   // Effective total (might be overridden)
-  const effectiveTotal = totalOverride !== "" ? (parseFloat(totalOverride) || 0) : computedTotal;
-  const adjustment = effectiveTotal - computedTotal;
+  const effectiveTotal = totalOverride !== "" ? (parseFloat(totalOverride) || 0) : computedDisplayTotal;
+  const adjustment = effectiveTotal - computedDisplayTotal;
   const hasAdjustment = totalOverride !== "" && Math.abs(adjustment) > 0.001;
 
   const selectedPairHasOppositeTypes =
@@ -192,19 +168,19 @@ const Exchange = () => {
   // When toggling between "wants" and "has", flip selected currencies.
   useEffect(() => {
     if (previousModeRef.current !== mode) {
-      setBuyCurrency(payCurrency);
-      setPayCurrency(buyCurrency);
+      setStepOneValue("buyCurrency", payCurrency);
+      setStepOneValue("payCurrency", buyCurrency);
       previousModeRef.current = mode;
     }
-  }, [mode, buyCurrency, payCurrency]);
+  }, [mode, buyCurrency, payCurrency, setStepOneValue]);
 
   // Keep second selection valid: it must be the opposite type of the first one.
   useEffect(() => {
     if (!buyCurrencyData || !payCurrencyData) return;
     if (buyCurrencyData.type === payCurrencyData.type) {
-      setPayCurrency("");
+      setStepOneValue("payCurrency", "");
     }
-  }, [buyCurrency, payCurrency, buyCurrencyData, payCurrencyData]);
+  }, [buyCurrency, payCurrency, buyCurrencyData, payCurrencyData, setStepOneValue]);
 
   const handleNext = async () => {
     if (!canProceed) return;
@@ -241,42 +217,69 @@ const Exchange = () => {
 
   const handleDiscard = () => {
     setStep(1);
-    setAmount("");
-    setBuyCurrency("");
-    setPayCurrency("");
-    setGasFee("");
+    resetStepOne({
+      mode: "wants",
+      amount: "",
+      buyCurrency: "",
+      payCurrency: "",
+    });
+    previousModeRef.current = "wants";
     setQuote(null);
     setTotalOverride("");
     setFeeOverride("");
     setEditingTotal(false);
     setEditingFee(false);
-    setCustomerId(null);
-    setCustomerPickerOpen(false);
+    setShowSaveConfirm(false);
   };
 
-  const handleSave = async () => {
+  const toDateTimeLocalValue = (date: Date) => {
+    const pad = (v: number) => String(v).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
+  const openSaveConfirmation = () => {
     if (!quote?.id) return;
-    if (!customerId) {
+    setSaveConfirmInitialValues({
+      customerId: "",
+      finalAmount: String(effectiveTotal),
+      occurredAt: toDateTimeLocalValue(new Date()),
+      referenceNo: "",
+      note: "",
+      actualReceivedAmount: amount || "0",
+      actualPaidAmount: amount || "0",
+    });
+    setShowSaveConfirm(true);
+  };
+
+  const handleSave = async (values: SaveConfirmFormValues) => {
+    if (!quote?.id) return;
+    if (!values.customerId) {
       toast.error("Customer is required", {
         description: "Please select a customer before saving this exchange.",
       });
       return;
     }
 
-    const paymentPath = (exchangeSlipId: string) =>
-      mode === "has"
-        ? `/api/exchange-slips/${exchangeSlipId}/pay-payments`
-        : `/api/exchange-slips/${exchangeSlipId}/receive-payments`;
-
     try {
       setSavingExchange(true);
-      const fromQuoteResponse = await api.post<{ id?: string }>(
-        `/api/exchange-slips/${quote.id}/from-quote`,
-        { customerId }
-      );
-      const exchangeSlipId = fromQuoteResponse.data?.id || quote.id;
-      await api.post(paymentPath(exchangeSlipId), {});
+      const occurredAtUtc = values.occurredAt
+        ? new Date(values.occurredAt).toISOString()
+        : new Date().toISOString();
 
+      await api.post<{ id?: string }>(
+        `/api/exchange-slips/from-quote`,
+        {
+          quoteId: quote.id,
+          customerId: Number(values.customerId),
+          finalAmount: parseFloat(values.finalAmount) || 0,
+          occurredAtUtc,
+          referenceNo: values.referenceNo,
+          note: values.note,
+          actualReceivedAmount: parseFloat(values.actualReceivedAmount) || 0,
+          actualPaidAmount: parseFloat(values.actualPaidAmount) || 0,
+        }
+      );
+      setShowSaveConfirm(false);
       setShowReceipt(true);
       // Generate image after dialog renders
       setTimeout(async () => {
@@ -326,7 +329,7 @@ const Exchange = () => {
 
   const handleConfirmAndClose = () => {
     toast.success("Exchange recorded successfully", {
-      description: `${formatNum(quotedCustomerReceivesAmount)} ${quotedCustomerReceivesAsset} → ${formatNum(effectiveTotal)} ${quotedCustomerPaysAsset}`,
+      description: `${formatNum(primaryAmount)} ${primaryAsset} → ${formatNum(effectiveTotal)} ${totalDisplayAsset}`,
     });
     setShowReceipt(false);
     setReceiptImage(null);
@@ -335,7 +338,7 @@ const Exchange = () => {
 
   const handleTotalEdit = () => {
     setEditingTotal(true);
-    setTotalOverride(totalOverride || String(computedTotal));
+    setTotalOverride(totalOverride || String(computedDisplayTotal));
   };
 
   const handleTotalConfirm = () => {
@@ -355,15 +358,6 @@ const Exchange = () => {
   const payCurrencyOptions = payCurrencyTypeFilter
     ? currencies.filter((c) => c.type === payCurrencyTypeFilter)
     : currencies;
-  const selectedCustomer = customers.find((customer) => customer.id === customerId);
-  const renderCurrencyOption = (asset: ExchangeAsset) => (
-    <SelectItem key={asset.code} value={asset.code}>
-      <div className="flex items-center gap-2">
-        <CurrencyIcon code={asset.code} />
-        <span className="font-mono">{asset.code}</span>
-      </div>
-    </SelectItem>
-  );
 
   return (
     <div>
@@ -411,385 +405,88 @@ const Exchange = () => {
           </div>
 
           {step === 1 && (
-            <>
-              {/* Mode toggle */}
-              <div className="flex rounded-lg bg-muted p-1 mb-6">
-                <button
-                  onClick={() => setMode("wants")}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${
-                    mode === "wants"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Customer Wants
-                </button>
-                <button
-                  onClick={() => setMode("has")}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${
-                    mode === "has"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Customer Has
-                </button>
-              </div>
-
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                {mode === "wants" ? "Customer wants to buy" : "Customer has"}
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 mb-6">
-                <Input
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="h-12 bg-background font-mono text-base"
-                  placeholder="Amount"
-                />
-                <Select value={buyCurrency} onValueChange={setBuyCurrency}>
-                  <SelectTrigger className="h-12 bg-background font-medium">
-                    <SelectValue placeholder="Currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest">Crypto</div>
-                    {currencies.filter(c => c.type === "crypto").map((c) => renderCurrencyOption(c))}
-                    <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Fiat</div>
-                    {currencies.filter(c => c.type === "fiat").map((c) => renderCurrencyOption(c))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-3 my-6">
-                <div className="flex-1 h-px bg-border" />
-                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                  <ArrowRight className="h-3.5 w-3.5" />
-                  {mode === "wants" ? "PAYING WITH" : "WANTS TO GET"}
-                </div>
-                <div className="flex-1 h-px bg-border" />
-              </div>
-
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                {mode === "wants" ? "Payment currency" : "Target currency"}
-              </label>
-              <div className="mt-2 mb-8">
-                <Select value={payCurrency} onValueChange={setPayCurrency}>
-                  <SelectTrigger className="h-12 bg-background font-medium">
-                    <SelectValue placeholder="Select payment currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                      {payCurrencyTypeFilter === "crypto" ? "Crypto" : payCurrencyTypeFilter === "fiat" ? "Fiat" : "All"}
-                    </div>
-                    {payCurrencyOptions.map((c) => renderCurrencyOption(c))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                onClick={() => void handleNext()}
-                size="lg"
-                className="w-full h-12 text-base font-bold"
-                disabled={!canProceed || fetchingQuote}
-              >
-                {fetchingQuote ? "Getting Quote..." : "Next"}
-              </Button>
-            </>
+            <ExchangeStepOne
+              control={stepOneControl}
+              mode={mode}
+              currencies={currencies}
+              payCurrencyTypeFilter={payCurrencyTypeFilter}
+              payCurrencyOptions={payCurrencyOptions}
+              canProceed={canProceed}
+              fetchingQuote={fetchingQuote}
+              onNext={() => void handleNext()}
+            />
           )}
 
           {step === 2 && (
-            <>
-              {/* Header */}
-              <div className="flex items-center gap-2 mb-6">
-                <Check className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-bold">Review Exchange</h2>
-              </div>
-
-               {/* Breakdown table */}
-               <div className="rounded-xl border border-border overflow-hidden mb-4">
-                {/* Row: Customer Wants To Buy */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
-                  <span className="text-xs font-medium text-muted-foreground">{mode === "wants" ? "Customer Wants To Buy" : "Customer Has"}</span>
-                  <div className="flex items-center gap-1.5">
-                    {primaryAsset && <CurrencyIcon code={primaryAsset} />}
-                    <span className="font-mono font-semibold text-sm">
-                      {formatNum(primaryAmount)} {primaryAsset}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Row: Exchange Rate */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                  <span className="text-xs font-medium text-muted-foreground">Exchange Rate</span>
-                  <span className="font-mono font-semibold text-sm">
-                    {formatNum(exchangeRate)}
-                  </span>
-                </div>
-
-                {/* Row: Subtotal */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                  <span className="text-xs font-medium text-muted-foreground">Subtotal</span>
-                  <div className="flex items-center gap-1.5">
-                    {quotedCustomerPaysAsset && <CurrencyIcon code={quotedCustomerPaysAsset} />}
-                    <span className="font-mono font-semibold text-sm">
-                      {formatNum(subtotal)} {quotedCustomerPaysAsset}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Row: Platform Fee — editable percentage on click */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-border last:border-b-0">
-                  <span className="text-xs font-medium text-muted-foreground">Platform Fee</span>
-                  {editingFee ? (
-                    <div className="flex items-center gap-1.5">
-                      <Input
-                        type="number"
-                        value={feeOverride}
-                        onChange={(e) => setFeeOverride(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && setEditingFee(false)}
-                        className="w-20 h-8 text-right font-mono text-sm bg-background"
-                        autoFocus
-                      />
-                      <span className="text-xs text-muted-foreground">%</span>
-                      <Button size="sm" variant="ghost" onClick={() => setEditingFee(false)} className="h-7 w-7 p-0">
-                        <Check className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <button onClick={() => { setEditingFee(true); setFeeOverride(feeOverride || String(effectiveFeePercent)); }} className="group flex items-center gap-1.5 cursor-pointer">
-                      <span className="text-primary font-semibold text-sm">{formatNum(effectiveFeePercent)}%</span>
-                      <span className="text-muted-foreground text-xs">→</span>
-                      <span className="font-mono font-semibold text-sm">
-                        {formatNum(effectiveFeeAmount)} {quotedCustomerPaysAsset}
-                      </span>
-                      <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Row: Gas Fee (only when buying fiat) */}
-                {isBuyingFiat && (
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-border last:border-b-0">
-                    <span className="text-xs font-medium text-muted-foreground">Gas Fee (absorbed)</span>
-                    <Input
-                      type="number"
-                      value={gasFee}
-                      onChange={(e) => setGasFee(e.target.value)}
-                      className="w-28 h-8 text-right font-mono text-sm bg-background"
-                      placeholder="0.00"
-                    />
-                  </div>
-                )}
-
-                {/* Row: Adjustment (only if total overridden) */}
-                {hasAdjustment && (
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <span className={`text-xs font-medium ${adjustment > 0 ? "text-accent" : "text-destructive"}`}>
-                      Adjustment
-                    </span>
-                    <span className={`font-mono font-semibold text-sm ${adjustment > 0 ? "text-accent" : "text-destructive"}`}>
-                      {adjustment > 0 ? "+" : ""}{formatNum(adjustment)} {quotedCustomerPaysAsset}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Total Customer Pays — compact box, editable */}
-              <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-4 mb-4">
-                {editingTotal ? (
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold whitespace-nowrap">Total Customer Pays</span>
-                    <div className="flex items-center gap-1.5">
-                      <Input
-                        type="number"
-                        value={totalOverride}
-                        onChange={(e) => setTotalOverride(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleTotalConfirm()}
-                        className="w-40 h-9 text-right font-mono text-base font-bold bg-background"
-                        autoFocus
-                      />
-                      <span className="text-xs font-semibold text-muted-foreground">{quotedCustomerPaysAsset}</span>
-                      <Button size="sm" variant="ghost" onClick={handleTotalConfirm} className="h-8 w-8 p-0">
-                        <Check className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <button onClick={handleTotalEdit} className="w-full group cursor-pointer text-left">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold">Total Customer Pays</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-xl tracking-tight">
-                          {formatNum(effectiveTotal)}
-                        </span>
-                        <span className="text-xs font-semibold text-muted-foreground">{quotedCustomerPaysAsset}</span>
-                        <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                    </div>
-                  </button>
-                )}
-              </div>
-
-              {isBuyingFiat && gasFeeNum > 0 && (
-                <div className="flex justify-between text-xs text-destructive mb-4 px-1">
-                  <span>Gas fee loss (our cost)</span>
-                  <span className="font-mono font-semibold">{formatNum(gasFeeNum)} {quotedCustomerPaysAsset}</span>
-                </div>
-              )}
-
-              <div className="mb-4">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 block">
-                  Customer
-                </label>
-                <Popover open={customerPickerOpen} onOpenChange={setCustomerPickerOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={customerPickerOpen}
-                      className="w-full justify-between h-11"
-                      disabled={loadingCustomers}
-                    >
-                      {selectedCustomer ? selectedCustomer.name : (loadingCustomers ? "Loading customers..." : "Search customer by name")}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                    <Command>
-                      <CommandInput placeholder="Type customer name..." />
-                      <CommandList>
-                        <CommandEmpty>No customer found.</CommandEmpty>
-                        <CommandGroup>
-                          {customers.map((customer) => (
-                            <CommandItem
-                              key={customer.id}
-                              value={customer.name}
-                              onSelect={() => {
-                                setCustomerId(customer.id);
-                                setCustomerPickerOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  customerId === customer.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {customer.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {quote && !quote.hasSufficientInventory && (
-                <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-2.5 text-sm text-destructive mb-4">
-                  Insufficient inventory for this quote.
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={handleDiscard}
-                  size="lg"
-                  className="flex-1 h-12 text-base font-bold"
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Discard
-                </Button>
-                <Button
-                  onClick={() => void handleSave()}
-                  size="lg"
-                  className="flex-1 h-12 text-base font-bold"
-                  disabled={savingExchange || !customerId}
-                >
-                  <Check className="h-4 w-4 mr-2" />
-                  {savingExchange ? "Saving..." : "Save Exchange"}
-                </Button>
-              </div>
-            </>
+            <ExchangeStepTwo
+              mode={mode}
+              primaryAsset={primaryAsset}
+              primaryAmount={primaryAmount}
+              exchangeRate={exchangeRate}
+              formatNum={formatNum}
+              quoteSummaryAsset={totalDisplayAsset}
+              subtotal={subtotal}
+              editingFee={editingFee}
+              feeOverride={feeOverride}
+              onFeeOverrideChange={setFeeOverride}
+              onFeeEditingChange={setEditingFee}
+              effectiveFeePercent={effectiveFeePercent}
+              effectiveFeeAmount={effectiveFeeAmount}
+              hasAdjustment={hasAdjustment}
+              adjustment={adjustment}
+              editingTotal={editingTotal}
+              totalOverride={totalOverride}
+              onTotalOverrideChange={setTotalOverride}
+              onTotalConfirm={handleTotalConfirm}
+              onTotalEdit={handleTotalEdit}
+              effectiveTotal={effectiveTotal}
+              totalDisplayAsset={totalDisplayAsset}
+              quoteHasSufficientInventory={quote?.hasSufficientInventory}
+              onDiscard={handleDiscard}
+              onSaveExchange={openSaveConfirmation}
+              savingExchange={savingExchange}
+              canSave={!!quote?.id}
+            />
           )}
         </div>
       </div>
 
-      {/* Receipt Preview Dialog */}
-      <Dialog open={showReceipt} onOpenChange={(open) => { if (!open) { setShowReceipt(false); setReceiptImage(null); } }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Exchange Receipt</DialogTitle>
-          </DialogHeader>
+      <ExchangeSaveConfirmDialog
+        open={showSaveConfirm}
+        onOpenChange={setShowSaveConfirm}
+        quoteId={quote?.id ?? ""}
+        loadingCustomers={loadingCustomers}
+        customers={customers}
+        savingExchange={savingExchange}
+        initialValues={saveConfirmInitialValues}
+        onSubmit={handleSave}
+      />
 
-          {/* Source for screenshot — hidden once image is generated */}
-          <div ref={receiptRef} className={`bg-[#0d1117] text-white p-6 rounded-xl ${receiptImage ? "hidden" : ""}`} style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-            <div className="text-center mb-5">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <ArrowLeftRight className="h-5 w-5 text-[#3b82f6]" />
-                <span className="text-lg font-bold">CryptoXchange</span>
-              </div>
-              <p className="text-xs text-gray-400">Exchange Receipt</p>
-              <p className="text-xs text-gray-500 mt-1">{new Date().toLocaleString()}</p>
-            </div>
-
-            <div className="border border-gray-700 rounded-lg overflow-hidden mb-4">
-              <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
-                <span className="text-xs text-gray-400">{mode === "wants" ? "Customer Wants To Buy" : "Customer Has"}</span>
-                <span className="text-sm font-mono font-semibold">{formatNum(primaryAmount)} {primaryAsset}</span>
-              </div>
-              <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
-                <span className="text-xs text-gray-400">Exchange Rate</span>
-                <span className="text-sm font-mono font-semibold">{formatNum(exchangeRate)}</span>
-              </div>
-              <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
-                <span className="text-xs text-gray-400">Subtotal</span>
-                <span className="text-sm font-mono font-semibold">{formatNum(subtotal)} {quotedCustomerPaysAsset}</span>
-              </div>
-              <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
-                <span className="text-xs text-gray-400">Fee ({feePercent}%)</span>
-                <span className="text-sm font-mono font-semibold">{formatNum(feeAmount)} {quotedCustomerPaysAsset}</span>
-              </div>
-              {hasAdjustment && (
-                <div className="flex justify-between px-4 py-2.5 border-b border-gray-700">
-                  <span className="text-xs text-gray-400">Adjustment</span>
-                  <span className="text-sm font-mono font-semibold">{adjustment > 0 ? "+" : ""}{formatNum(adjustment)} {quotedCustomerPaysAsset}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="bg-[#161b22] border border-[#3b82f6]/30 rounded-lg p-4 text-center">
-              <p className="text-xs text-gray-400 mb-1">Total Customer Pays</p>
-              <p className="text-2xl font-mono font-bold">{formatNum(effectiveTotal)}</p>
-              <p className="text-sm font-bold text-gray-400">{quotedCustomerPaysAsset}</p>
-            </div>
-          </div>
-
-          {/* Generated image preview */}
-          {receiptImage && (
-            <div className="rounded-lg overflow-hidden border border-border">
-              <img src={receiptImage} alt="Receipt preview" className="w-full" />
-            </div>
-          )}
-
-          <div className="flex gap-3 mt-4">
-            <Button variant="outline" onClick={handleDownloadReceipt} disabled={!receiptImage} className="flex-1">
-              <Download className="h-4 w-4 mr-2" />
-              Download
-            </Button>
-            <Button variant="outline" onClick={handleShareReceipt} disabled={!receiptImage} className="flex-1">
-              <Share2 className="h-4 w-4 mr-2" />
-              Share
-            </Button>
-            <Button onClick={handleConfirmAndClose} className="flex-1">
-              <Check className="h-4 w-4 mr-2" />
-              Confirm
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ExchangeReceiptDialog
+        open={showReceipt}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowReceipt(false);
+            setReceiptImage(null);
+          }
+        }}
+        receiptRef={receiptRef}
+        receiptImage={receiptImage}
+        mode={mode}
+        primaryAmount={primaryAmount}
+        primaryAsset={primaryAsset}
+        exchangeRate={exchangeRate}
+        subtotal={subtotal}
+        quoteSummaryAsset={totalDisplayAsset}
+        feePercent={feePercent}
+        feeAmount={feeAmount}
+        effectiveTotal={effectiveTotal}
+        totalDisplayAsset={totalDisplayAsset}
+        formatNum={formatNum}
+        onDownload={handleDownloadReceipt}
+        onShare={handleShareReceipt}
+        onConfirm={handleConfirmAndClose}
+      />
     </div>
   );
 };
